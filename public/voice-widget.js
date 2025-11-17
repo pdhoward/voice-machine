@@ -17,10 +17,8 @@
           credentials: "omit",
         }
       )
-        .then(function (res) {
-          return res.json();
-        })
-        .then(function (json) {
+        .then(res => res.json())
+        .then(json => {
           if (!json || !json.ok) {
             console.warn(
               "[SM Voice Widget] bootstrap failed:",
@@ -29,8 +27,8 @@
             return;
           }
 
-          var tenantId = json.tenantId;
-          var displayName = json.displayName || "our team";
+          var token = json.widgetSessionToken;
+          var displayName = json.displayName || "Our Team";
           var token = json.widgetSessionToken;
           var primaryColor =
             (json.branding && json.branding.primaryColor) || "#2563eb";
