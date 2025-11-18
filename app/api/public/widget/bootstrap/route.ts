@@ -61,43 +61,45 @@ export async function GET(req: NextRequest) {
         403
       );
     }
+ 
+    // ✅ Origin binding: strict in prod, relaxed in dev, with host normalization
+    if (widgetEntry.origin && origin) {
+      const isProd = process.env.NODE_ENV === "production";
 
-    // ✅ Origin binding: strict in prod, relaxed in dev
-    // Origin binding: strict in prod, relaxed in dev
-if (widgetEntry.origin && origin) {
-  const isProd = process.env.NODE_ENV === "production";
+      try {
+        const expectedUrl = new URL(widgetEntry.origin);
+        const actualUrl = new URL(origin);
 
-  try {
-    const expectedUrl = new URL(widgetEntry.origin);
-    const actualUrl = new URL(origin);
+        const normalizeHost = (host: string) =>
+          host.replace(/^www\./i, "").toLowerCase();
 
-    const expectedHost = expectedUrl.hostname; // e.g. "strategicmachines.ai"
-    const actualHost = actualUrl.hostname;     // e.g. "strategicmachines.ai"
+        const expectedHost = normalizeHost(expectedUrl.hostname); // e.g. "strategicmachines.ai"
+        const actualHost = normalizeHost(actualUrl.hostname);     // e.g. "strategicmachines.ai"
 
-    if (isProd && expectedHost !== actualHost) {
-      console.warn(
-        "[widget-bootstrap] origin mismatch",
-        "expected host:",
-        expectedHost,
-        "got host:",
-        actualHost
-      );
-      return withCORS(
-        { ok: false, error: "origin_not_allowed" },
-        403
-      );
-    }
+        if (isProd && expectedHost !== actualHost) {
+          console.warn(
+            "[widget-bootstrap] origin mismatch",
+            "expected host:",
+            expectedHost,
+            "got host:",
+            actualHost
+          );
+          return withCORS(
+            { ok: false, error: "origin_not_allowed" },
+            403
+          );
+        }
 
-    if (!isProd && expectedHost !== actualHost) {
-      console.warn(
-        "[widget-bootstrap] (dev) origin mismatch but allowed",
-        "expected host:",
-        expectedHost,
-        "got host:",
-        actualHost
-      );
-    }
-    } catch (e) {
+        if (!isProd && expectedHost !== actualHost) {
+          console.warn(
+            "[widget-bootstrap] (dev) origin mismatch but allowed",
+            "expected host:",
+            expectedHost,
+            "got host:",
+            actualHost
+          );
+        }
+      } catch (e) {
         console.warn(
           "[widget-bootstrap] origin parse error",
           "widgetEntry.origin=",
@@ -106,7 +108,7 @@ if (widgetEntry.origin && origin) {
           origin,
           e
         );
-        //TODO: in prod if unable to parse - fail it. But keep for now
+        // For now, don't fail hard on parse errors.
       }
     }
 
