@@ -10,15 +10,31 @@
       var key = script.getAttribute("data-tenant-widget-key");
       if (!key) return;
 
+      // Derive base URL from where the script itself is served
+      var scriptSrc = script.getAttribute("src") || "";
+      var baseUrl;
+
+      try {
+        var url = new URL(scriptSrc, window.location.href);
+        baseUrl = url.origin;
+      } catch (e) {
+        // Fallback: dev ngrok tunnel
+        baseUrl = "https://chaotic.ngrok.io";
+      }
+
+      // Bootstrap call
       fetch(
-        "https://chaotic.ngrok.io/api/public/widget/bootstrap?key=" +
+        baseUrl +
+          "/api/public/widget/bootstrap?key=" +
           encodeURIComponent(key),
         {
           credentials: "omit",
         }
       )
-        .then(res => res.json())
-        .then(json => {
+        .then(function (res) {
+          return res.json();
+        })
+        .then(function (json) {
           if (!json || !json.ok) {
             console.warn(
               "[SM Voice Widget] bootstrap failed:",
@@ -29,7 +45,6 @@
 
           var token = json.widgetSessionToken;
           var displayName = json.displayName || "Our Team";
-          var token = json.widgetSessionToken;
           var primaryColor =
             (json.branding && json.branding.primaryColor) || "#2563eb";
 
@@ -53,7 +68,7 @@
             var msg = window.prompt("Ask a question for " + displayName + ":");
             if (!msg) return;
 
-            fetch("https://chaotic.ngrok.io/api/voice/session", {
+            fetch(baseUrl + "/api/voice/session", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
