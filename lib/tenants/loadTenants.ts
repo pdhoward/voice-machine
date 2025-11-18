@@ -6,25 +6,35 @@ const TENANTS_COLLECTION = "tenants";
 
 // Optional helper if you ever ingest extended JSON (Compass exports, etc.)
 function unwrapMongoExtendedJSON(v: any): any {
-  if (Array.isArray(v)) return v.map(unwrapMongoExtendedJSON);
-  if (v && typeof v === "object") {
-    if ("$numberInt" in v) return parseInt(v.$numberInt, 10);
-    if ("$numberLong" in v) return parseInt(v.$numberLong, 10);
-    if ("$numberDouble" in v) return parseFloat(v.$numberDouble);
-    if ("$numberDecimal" in v) return Number(v.$numberDecimal);
+  // 👇 IMPORTANT: preserve real Date instances as-is
+  if (v instanceof Date) return v;
 
+  if (Array.isArray(v)) return v.map(unwrapMongoExtendedJSON);
+
+  if (v && typeof v === "object") {
+    // Handle Mongo Extended JSON numeric types
+    if ("$numberInt" in v) return parseInt((v as any).$numberInt, 10);
+    if ("$numberLong" in v) return parseInt((v as any).$numberLong, 10);
+    if ("$numberDouble" in v) return parseFloat((v as any).$numberDouble);
+    if ("$numberDecimal" in v) return Number((v as any).$numberDecimal);
+
+    // Handle Mongo Extended JSON date types
     if ("$date" in v) {
-      const raw = v.$date;
+      const raw = (v as any).$date;
       if (typeof raw === "string") return new Date(raw);
       if (raw && typeof raw === "object" && "$numberLong" in raw) {
-        return new Date(Number(raw.$numberLong));
+        return new Date(Number((raw as any).$numberLong));
       }
     }
 
+    // Generic object – recurse into its props
     const out: Record<string, any> = {};
-    for (const [k, val] of Object.entries(v)) out[k] = unwrapMongoExtendedJSON(val);
+    for (const [k, val] of Object.entries(v)) {
+      out[k] = unwrapMongoExtendedJSON(val);
+    }
     return out;
   }
+
   return v;
 }
 

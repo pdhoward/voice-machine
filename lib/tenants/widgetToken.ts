@@ -18,9 +18,9 @@ export type WidgetSessionClaims = {
 };
 
 function getSecret(): string {
-  const secret = process.env.WIDGET_TOKEN_SECRET;
+  const secret = process.env.WIDGET_JWT_SECRET;
   if (!secret) {
-    throw new Error("Missing WIDGET_TOKEN_SECRET in environment");
+    throw new Error("Missing WIDGET_JWT_SECRET in environment");
   }
   return secret;
 }

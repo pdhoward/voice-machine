@@ -5,6 +5,7 @@
 //     be long -- while a visitor to the site //
 //      has short ttl for security           //
 //////////////////////////////////////////////
+// app/api/public/widget/bootstrap/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { loadTenantByWidgetKey } from "@/lib/tenants/loadTenants";
 import { signWidgetSessionToken } from "@/lib/tenants/widgetToken";
@@ -15,7 +16,6 @@ function withCORS(json: any, status = 200) {
   return NextResponse.json(json, {
     status,
     headers: {
-      // For dev you can use "*" — in prod, lock this down to specific domains
       "Access-Control-Allow-Origin":
         process.env.WIDGET_CORS_ORIGIN || "*",
       "Access-Control-Allow-Methods": "GET,OPTIONS",
@@ -24,7 +24,6 @@ function withCORS(json: any, status = 200) {
   });
 }
 
-// CORS preflight (not strictly necessary for simple GET, but safe to have)
 export async function OPTIONS() {
   return withCORS({}, 204);
 }
@@ -35,24 +34,19 @@ export async function GET(req: NextRequest) {
     const key = searchParams.get("key");
 
     if (!key) {
-      return withCORS(
-        { ok: false, error: "missing_widget_key" },
-        400
-      );
+      return withCORS({ ok: false, error: "missing_widget_key" }, 400);
     }
 
     const origin = req.headers.get("origin") || undefined;
 
     const tenant = await loadTenantByWidgetKey(key);
     if (!tenant) {
-      return withCORS(
-        { ok: false, error: "tenant_not_found" },
-        404
-      );
+      return withCORS({ ok: false, error: "tenant_not_found" }, 404);
     }
 
-    // Find the matching widget key entry
-    const widgetEntry = (tenant.widgetKeys || []).find((w: any) => w.key === key);
+    const widgetEntry = (tenant.widgetKeys || []).find(
+      (w: any) => w.key === key
+    );
 
     if (!widgetEntry) {
       return withCORS(
@@ -68,19 +62,33 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Optional: enforce origin binding if configured
-    if (widgetEntry.origin && origin && widgetEntry.origin !== origin) {
-      console.warn(
-        "[widget-bootstrap] origin mismatch",
-        "expected:",
-        widgetEntry.origin,
-        "got:",
-        origin
-      );
-      return withCORS(
-        { ok: false, error: "origin_not_allowed" },
-        403
-      );
+    // ✅ Origin binding: strict in prod, relaxed in dev
+    if (widgetEntry.origin && origin) {
+      const isProd = process.env.NODE_ENV === "production";
+
+      if (isProd && widgetEntry.origin !== origin) {
+        console.warn(
+          "[widget-bootstrap] origin mismatch",
+          "expected:",
+          widgetEntry.origin,
+          "got:",
+          origin
+        );
+        return withCORS(
+          { ok: false, error: "origin_not_allowed" },
+          403
+        );
+      }
+
+      if (!isProd && widgetEntry.origin !== origin) {
+        console.warn(
+          "[widget-bootstrap] (dev) origin mismatch but allowed",
+          "expected:",
+          widgetEntry.origin,
+          "got:",
+          origin
+        );
+      }
     }
 
     const displayName =
@@ -88,15 +96,15 @@ export async function GET(req: NextRequest) {
     const voiceAgent = tenant.config.voiceAgent;
     const allowedTools = tenant.agentSettings?.allowedTools ?? [];
     const primaryColor = tenant.flags?.betaFeatures
-      ? "#16a34a" // fun: green for beta tenants
+      ? "#16a34a"
       : "#2563eb";
 
-    // Sign real widget session token (JWT)
     const widgetSessionToken = signWidgetSessionToken({
       tenant,
       widgetKeyEntry: widgetEntry,
       origin,
-      ttl: "30m", // adjust if needed
+      // you can go back to "30m" or leave undefined when you're ready
+      ttl: undefined,
     });
 
     return withCORS(
@@ -124,9 +132,6 @@ export async function GET(req: NextRequest) {
     );
   } catch (err: any) {
     console.error("[widget-bootstrap] error", err);
-    return withCORS(
-      { ok: false, error: "server_error" },
-      500
-    );
+    return withCORS({ ok: false, error: "server_error" }, 500);
   }
 }
