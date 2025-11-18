@@ -1,4 +1,9 @@
 // lib/tenants/widgetToken.ts
+
+///////////////////////////////////////////////////////
+///   note when ttl is set to "" the token        ////
+//               never expires                   ////
+////////////////////////////////////////////////////
 import jwt, { SignOptions } from "jsonwebtoken";
 import type { Tenant, WidgetKey } from "@/types/tenant.schema";
 
@@ -27,7 +32,7 @@ export function signWidgetSessionToken(params: {
   // Use the same type jsonwebtoken expects for expiresIn
   ttl?: SignOptions["expiresIn"]; // e.g. "30m", 1800, etc.
 }): string {
-  const { tenant, widgetKeyEntry, origin, ttl = "30m" } = params;
+  const { tenant, widgetKeyEntry, origin, ttl} = params;
 
   const payload: WidgetSessionClaims = {
     sub: tenant.tenantId,
@@ -38,7 +43,7 @@ export function signWidgetSessionToken(params: {
   };
 
   const options: SignOptions = {};
-  if (ttl) {
+ if (ttl != null) {
     options.expiresIn = ttl;
   }
 

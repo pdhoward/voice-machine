@@ -1,4 +1,10 @@
 // app/api/public/widget/bootstrap/route.ts
+///////////////////////////////////////////////////
+///   note this is the widget that resides on   //
+//    the tenants website ... so ttl should be //
+//     be long -- while a visitor to the site //
+//      has short ttl for security           //
+//////////////////////////////////////////////
 import { NextRequest, NextResponse } from "next/server";
 import { loadTenantByWidgetKey } from "@/lib/tenants/loadTenants";
 import { signWidgetSessionToken } from "@/lib/tenants/widgetToken";
