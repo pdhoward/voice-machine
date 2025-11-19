@@ -1,15 +1,97 @@
 // public/voice-widget.js
-
 (function () {
   var WIDGET_ATTR = "data-tenant-widget-key";
   var SCRIPT_MATCH = 'script[src*="voice-widget.js"][' + WIDGET_ATTR + "]";
 
+  // Global state for active overlay / launcher / iframe
+  var activeOverlay = null;
+  var activeLauncherContainer = null;
+  var activeIframe = null;
+  var STYLES_INJECTED = false;
+
+  function injectPulseStyles() {
+    if (STYLES_INJECTED) return;
+    STYLES_INJECTED = true;
+
+    var style = document.createElement("style");
+    //style.type = "text/css";
+    style.textContent = `
+      @keyframes sm-voice-orb-pulse {
+        0% {
+          transform: translateY(0) scale(1);
+          box-shadow: 0 10px 16px -6px rgba(15,23,42,0.35),
+                      0 4px 8px -4px rgba(15,23,42,0.25);
+        }
+        50% {
+          transform: translateY(-1px) scale(1.05);
+          box-shadow: 0 16px 24px -8px rgba(15,23,42,0.45),
+                      0 6px 12px -6px rgba(15,23,42,0.35);
+        }
+        100% {
+          transform: translateY(0) scale(1);
+          box-shadow: 0 10px 16px -6px rgba(15,23,42,0.35),
+                      0 4px 8px -4px rgba(15,23,42,0.25);
+        }
+      }
+
+      .sm-voice-orb {
+        animation: sm-voice-orb-pulse 2.2s ease-in-out infinite;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function closeOverlay() {
+    if (activeOverlay && activeOverlay.parentNode) {
+      activeOverlay.parentNode.removeChild(activeOverlay);
+    }
+    activeOverlay = null;
+    activeIframe = null;
+
+    if (activeLauncherContainer) {
+      activeLauncherContainer.style.display = "flex";
+    }
+  }
+
+  // Listen for messages from the iframe
+  window.addEventListener("message", function (event) {
+    if (!event.data || !event.data.type) return;
+
+    if (event.data.type === "sm-voice-widget-close") {
+      closeOverlay();
+      return;
+    }
+
+    if (event.data.type === "sm-voice-widget-resize" && activeIframe) {
+      var h = parseInt(event.data.height, 10);
+      var w = parseInt(event.data.width, 10);
+
+      if (!isNaN(h) && h > 0) {
+        // Keep a little margin from viewport edges
+        var maxH = window.innerHeight - 40;
+        activeIframe.style.height = Math.min(h, maxH) + "px";
+      }
+
+      // Width is optional; usually we keep maxWidth fixed.
+      if (!isNaN(w) && w > 0) {
+        var maxW = Math.min(w, window.innerWidth - 32);
+        activeIframe.style.width = maxW + "px";
+      }
+    }
+  });
+
   function createVoiceButton(options) {
     var displayName = options.displayName || "Our Team";
     var primaryColor = options.primaryColor || "#2563eb";
-    var onClick = options.onClick;
+    var baseUrl = options.baseUrl;
+    var token = options.token;
+    var tenantId = options.tenantId;
 
-    // Container to allow tooltip and button
+    injectPulseStyles();
+
+    // ─────────────────────────────────────────────
+    // Container for tooltip + orb
+    // ─────────────────────────────────────────────
     var container = document.createElement("div");
     container.style.position = "fixed";
     container.style.right = "16px";
@@ -20,10 +102,13 @@
     container.style.alignItems = "flex-end";
     container.style.gap = "6px";
 
-    // The round icon button
+    // ─────────────────────────────────────────────
+    // Round orb button (with pulse)
+    // ─────────────────────────────────────────────
     var btn = document.createElement("button");
     btn.type = "button";
     btn.setAttribute("aria-label", "Talk to " + displayName);
+    btn.className = "sm-voice-orb";
     btn.style.width = "52px";
     btn.style.height = "52px";
     btn.style.borderRadius = "9999px";
@@ -34,21 +119,21 @@
     btn.style.justifyContent = "center";
     btn.style.cursor = "pointer";
     btn.style.boxShadow =
-      "0 12px 18px -6px rgba(15,23,42,0.35), 0 4px 8px -4px rgba(15,23,42,0.25)";
+      "0 10px 16px -6px rgba(15,23,42,0.35), 0 4px 8px -4px rgba(15,23,42,0.25)";
     btn.style.padding = "0";
     btn.style.outline = "none";
     btn.style.transition =
       "transform 0.15s ease-out, box-shadow 0.15s ease-out, border-color 0.15s ease-out, background-color 0.15s ease-out";
 
     btn.addEventListener("mouseenter", function () {
-      btn.style.transform = "translateY(-2px)";
+      btn.style.transform = "translateY(-2px) scale(1.05)";
       btn.style.boxShadow =
-        "0 16px 24px -8px rgba(15,23,42,0.4), 0 6px 10px -4px rgba(15,23,42,0.3)";
+        "0 18px 28px -8px rgba(15,23,42,0.5), 0 8px 14px -6px rgba(15,23,42,0.4)";
     });
     btn.addEventListener("mouseleave", function () {
-      btn.style.transform = "translateY(0)";
+      btn.style.transform = "translateY(0) scale(1)";
       btn.style.boxShadow =
-        "0 12px 18px -6px rgba(15,23,42,0.35), 0 4px 8px -4px rgba(15,23,42,0.25)";
+        "0 10px 16px -6px rgba(15,23,42,0.35), 0 4px 8px -4px rgba(15,23,42,0.25)";
     });
     btn.addEventListener("focus", function () {
       btn.style.boxShadow =
@@ -56,17 +141,61 @@
     });
     btn.addEventListener("blur", function () {
       btn.style.boxShadow =
-        "0 12px 18px -6px rgba(15,23,42,0.35), 0 4px 8px -4px rgba(15,23,42,0.25)";
+        "0 10px 16px -6px rgba(15,23,42,0.35), 0 4px 8px -4px rgba(15,23,42,0.25)";
     });
 
-    // 🔹 Click just calls the passed-in handler
+    // ─────────────────────────────────────────────
+    // Orb click → open iframe overlay & hide orb
+    // ─────────────────────────────────────────────
     btn.addEventListener("click", function () {
-      if (typeof onClick === "function") {
-        onClick();
-      }
+      if (activeOverlay) return;
+
+      var overlay = document.createElement("div");
+      overlay.style.position = "fixed";
+      overlay.style.inset = "0";
+      overlay.style.zIndex = "999998";
+      overlay.style.background = "rgba(15,23,42,0.55)";
+      overlay.style.display = "flex";
+      overlay.style.justifyContent = "flex-end";
+      overlay.style.alignItems = "flex-end";
+
+      overlay.addEventListener("click", function (e) {
+        if (e.target === overlay) {
+          closeOverlay();
+        }
+      });
+
+      var iframe = document.createElement("iframe");
+      iframe.src =
+        baseUrl +
+        "/widget?token=" +
+        encodeURIComponent(token) +
+        "&tenantId=" +
+        encodeURIComponent(tenantId);
+      iframe.style.border = "none";
+      iframe.style.width = "100%";
+      iframe.style.maxWidth = "420px";
+      // Initial height; will be refined by sm-voice-widget-resize
+      iframe.style.height = "420px";
+      iframe.style.borderRadius = "16px 16px 0 0";
+      iframe.style.boxShadow =
+        "0 20px 40px rgba(15,23,42,0.45)";
+      iframe.allow = "microphone;";
+
+      overlay.appendChild(iframe);
+      document.body.appendChild(overlay);
+
+      // Hide launcher while panel is open
+      container.style.display = "none";
+
+      activeOverlay = overlay;
+      activeLauncherContainer = container;
+      activeIframe = iframe;
     });
 
-    // Inline SVG icon (your VoiceIcon, adapted)
+    // ─────────────────────────────────────────────
+    // Inline SVG icon (VoiceIcon)
+    // ─────────────────────────────────────────────
     var svgNS = "http://www.w3.org/2000/svg";
     var svg = document.createElementNS(svgNS, "svg");
     svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
@@ -110,17 +239,19 @@
     dot.setAttribute("y2", "15");
     svg.appendChild(dot);
 
-    var base = document.createElementNS(svgNS, "rect");
-    base.setAttribute("x", "8");
-    base.setAttribute("y", "17");
-    base.setAttribute("width", "8");
-    base.setAttribute("height", "2");
-    base.setAttribute("rx", "1");
-    svg.appendChild(base);
+    var baseRect = document.createElementNS(svgNS, "rect");
+    baseRect.setAttribute("x", "8");
+    baseRect.setAttribute("y", "17");
+    baseRect.setAttribute("width", "8");
+    baseRect.setAttribute("height", "2");
+    baseRect.setAttribute("rx", "1");
+    svg.appendChild(baseRect);
 
     btn.appendChild(svg);
 
-    // Small tooltip label ("Talk to Machine")
+    // ─────────────────────────────────────────────
+    // Tooltip label
+    // ─────────────────────────────────────────────
     var label = document.createElement("div");
     label.textContent = "Talk to " + displayName;
     label.style.fontFamily =
@@ -142,7 +273,6 @@
     label.style.textAlign = "right";
     label.style.whiteSpace = "nowrap";
 
-    // Show tooltip on hover / focus
     btn.addEventListener("mouseenter", function () {
       label.style.opacity = "1";
       label.style.transform = "translateY(0)";
@@ -173,18 +303,15 @@
       var key = script.getAttribute(WIDGET_ATTR);
       if (!key) return;
 
-      // Derive base URL from where the script itself is served
       var scriptSrc = script.getAttribute("src") || "";
       var baseUrl;
       try {
         var url = new URL(scriptSrc, window.location.href);
         baseUrl = url.origin;
       } catch (e) {
-        // Fallback: dev ngrok tunnel
         baseUrl = "https://chaotic.ngrok.io";
       }
 
-      // Bootstrap call
       fetch(
         baseUrl +
           "/api/public/widget/bootstrap?key=" +
@@ -209,49 +336,13 @@
           var displayName = json.displayName || "Our Team";
           var primaryColor =
             (json.branding && json.branding.primaryColor) || "#2563eb";
-          var tenantId = json.tenantId;
 
-          // 🔹 Create the floating button that opens an iframe overlay
           createVoiceButton({
             displayName: displayName,
             primaryColor: primaryColor,
-            onClick: function () {
-              // Create overlay
-              var overlay = document.createElement("div");
-              overlay.style.position = "fixed";
-              overlay.style.inset = "0";
-              overlay.style.zIndex = "999998";
-              overlay.style.background = "rgba(15,23,42,0.55)";
-              overlay.style.display = "flex";
-              overlay.style.justifyContent = "flex-end";
-              overlay.style.alignItems = "flex-end";
-
-              // Click outside to close
-              overlay.addEventListener("click", function (e) {
-                if (e.target === overlay) {
-                  document.body.removeChild(overlay);
-                }
-              });
-
-              var iframe = document.createElement("iframe");
-              iframe.src =
-                baseUrl +
-                "/widget?token=" +
-                encodeURIComponent(token) +
-                "&tenantId=" +
-                encodeURIComponent(tenantId);
-              iframe.style.border = "none";
-              iframe.style.width = "100%";
-              iframe.style.maxWidth = "420px";
-              iframe.style.height = "70%";
-              iframe.style.borderRadius = "16px 16px 0 0";
-              iframe.style.boxShadow =
-                "0 20px 40px rgba(15,23,42,0.45)";
-              iframe.allow = "microphone;";
-
-              overlay.appendChild(iframe);
-              document.body.appendChild(overlay);
-            },
+            baseUrl: baseUrl,
+            token: token,
+            tenantId: json.tenantId || "machine",
           });
         })
         .catch(function (err) {
