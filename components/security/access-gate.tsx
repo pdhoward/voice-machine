@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import {
   CheckCircle2,
   LockKeyhole,
@@ -29,7 +29,7 @@ import {
   InputOTPSlot,
   InputOTPSeparator,
 } from "@/components/ui/input-otp";
-const MotionHelpCircle = motion(HelpCircle);
+const MotionHelpCircle = motion.create(HelpCircle);
 
 import { DISCLAIMER_TEXT, DISCLAIMER_TITLE } from "@/assets/disclaimers/20251030"; // NEW: Import shared disclaimer
 

@@ -30,7 +30,7 @@ export function signWidgetSessionToken(params: {
   widgetKeyEntry: WidgetKey;
   origin?: string | null;
   // Use the same type jsonwebtoken expects for expiresIn
-  ttl?: SignOptions["expiresIn"]; // e.g. "30m", 1800, etc.
+  ttl?: SignOptions["expiresIn"]; // e.g. "30m", 1800, etc. (or undefined => no exp)
 }): string {
   const { tenant, widgetKeyEntry, origin, ttl} = params;
 
@@ -57,7 +57,9 @@ export function verifyWidgetSessionToken(token: string): WidgetSessionClaims | n
       token,
       getSecret()
     ) as WidgetSessionClaims;
-    if (decoded.typ !== "widget") return null;
+     if (decoded.typ !== "widget" || !decoded.sub || !decoded.key) {
+      return null;
+    }
     return decoded;
   } catch (err) {
     console.error("[verifyWidgetSessionToken] error", err);

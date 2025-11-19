@@ -17,7 +17,7 @@ import {
 } from "@/components/triggers";
 
 import { Send } from "lucide-react"; 
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 
 import { useToolsFunctions } from "@/hooks/use-tools";
 import { useVisualFunctions } from "@/hooks/use-visuals"; //show_component

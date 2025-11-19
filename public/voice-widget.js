@@ -1,7 +1,8 @@
 // public/voice-widget.js
+
 (function () {
-  var WIDGET_ATTR = 'data-tenant-widget-key';
-  var SCRIPT_MATCH = 'script[src*="voice-widget.js"][' + WIDGET_ATTR + ']';
+  var WIDGET_ATTR = "data-tenant-widget-key";
+  var SCRIPT_MATCH = 'script[src*="voice-widget.js"][' + WIDGET_ATTR + "]";
 
   function createVoiceButton(options) {
     var displayName = options.displayName || "Our Team";
@@ -58,12 +59,14 @@
         "0 12px 18px -6px rgba(15,23,42,0.35), 0 4px 8px -4px rgba(15,23,42,0.25)";
     });
 
+    // 🔹 Click just calls the passed-in handler
     btn.addEventListener("click", function () {
-      if (typeof onClick === "function") onClick();
+      if (typeof onClick === "function") {
+        onClick();
+      }
     });
 
     // Inline SVG icon (your VoiceIcon, adapted)
-    // We keep the rect background white and use primaryColor for stroke
     var svgNS = "http://www.w3.org/2000/svg";
     var svg = document.createElementNS(svgNS, "svg");
     svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
@@ -206,45 +209,48 @@
           var displayName = json.displayName || "Our Team";
           var primaryColor =
             (json.branding && json.branding.primaryColor) || "#2563eb";
+          var tenantId = json.tenantId;
 
+          // 🔹 Create the floating button that opens an iframe overlay
           createVoiceButton({
             displayName: displayName,
             primaryColor: primaryColor,
             onClick: function () {
-              var msg = window.prompt(
-                "Ask a question for " + displayName + ":"
-              );
-              if (!msg) return;
+              // Create overlay
+              var overlay = document.createElement("div");
+              overlay.style.position = "fixed";
+              overlay.style.inset = "0";
+              overlay.style.zIndex = "999998";
+              overlay.style.background = "rgba(15,23,42,0.55)";
+              overlay.style.display = "flex";
+              overlay.style.justifyContent = "flex-end";
+              overlay.style.alignItems = "flex-end";
 
-              fetch(baseUrl + "/api/voice/session", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: "Bearer " + token,
-                },
-                body: JSON.stringify({ message: msg }),
-              })
-                .then(function (res) {
-                  return res.json();
-                })
-                .then(function (resJson) {
-                  if (!resJson.ok) {
-                    window.alert(
-                      "Sorry, I had trouble answering that. (" +
-                        (resJson.error || "unknown error") +
-                        ")"
-                    );
-                    return;
-                  }
-                  window.alert(resJson.reply || "No reply.");
-                })
-                .catch(function (err) {
-                  console.error(
-                    "[SM Voice Widget] session error",
-                    err
-                  );
-                  window.alert("Sorry, something went wrong.");
-                });
+              // Click outside to close
+              overlay.addEventListener("click", function (e) {
+                if (e.target === overlay) {
+                  document.body.removeChild(overlay);
+                }
+              });
+
+              var iframe = document.createElement("iframe");
+              iframe.src =
+                baseUrl +
+                "/widget?token=" +
+                encodeURIComponent(token) +
+                "&tenantId=" +
+                encodeURIComponent(tenantId);
+              iframe.style.border = "none";
+              iframe.style.width = "100%";
+              iframe.style.maxWidth = "420px";
+              iframe.style.height = "70%";
+              iframe.style.borderRadius = "16px 16px 0 0";
+              iframe.style.boxShadow =
+                "0 20px 40px rgba(15,23,42,0.45)";
+              iframe.allow = "microphone;";
+
+              overlay.appendChild(iframe);
+              document.body.appendChild(overlay);
             },
           });
         })

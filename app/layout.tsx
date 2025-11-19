@@ -1,29 +1,13 @@
 // app/layout.tsx
 import type { Metadata } from "next";
+import { cn } from "@/lib/utils";
 import { Geist } from "next/font/google";
 import "./globals.css";
-import { Header } from "@/components/header";
-import { cn } from "@/lib/utils";
-import { ThemeProvider } from "@/components/theme-provider";
-import { siteConfig } from "@/config/site";
-import { Toaster } from "@/components/ui/sonner";
-import { Analytics } from "@vercel/analytics/react";
-import Providers from "./providers";
-import ToolRegistryPanel from '@/components/ToolRegistryPanel';
-import Banner from "@/components/banner"; // default export above
-import { BotIdClient } from "botid/client";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
-
-const protectedRoutes = [
-  {
-    path: '/api/session',
-    method: 'POST',
-  },
-];
 
 export const viewport = {
   width: "device-width",
@@ -55,31 +39,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-     <head>
-        <BotIdClient protect={protectedRoutes}  />
-      </head>
-      <body
-        className={cn(
-          "min-h-dvh bg-background font-sans antialiased",
-          geistSans.variable
-        )}
-      >
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <Providers>           
-            <div className="relative flex min-h-dvh flex-col bg-background items-center">
-              <Banner />
-              <Header />
-              <main className="flex flex-1 justify-center items-start">
-                {children}
-              </main>
-            </div>
-
-            <Toaster />
-            <ToolRegistryPanel />
-          </Providers>
-        </ThemeProvider>
-        <Analytics />
+    <html lang="en" suppressHydrationWarning>     
+      <body className={cn("min-h-dvh bg-background font-sans antialiased", geistSans.variable )} >
+         {children}
       </body>
     </html>
   );

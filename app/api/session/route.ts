@@ -1,4 +1,11 @@
 // /app/api/session/route.ts
+
+/////////////////////////////////////////////////////
+///     DUAL AUTH PROCESS FOR CRITICAL ROUTE  //////
+//   For /(web) route, users need to sign in    ///
+//   For /widget, tenants need jwt token        //
+/////////////////////////////////////////////////
+// /app/api/session/route.ts
 import { NextResponse, NextRequest } from "next/server";
 import crypto from "crypto";
 import getMongoConnection from "@/db/connections";
@@ -7,6 +14,7 @@ import { sha256Hex } from "@/app/api/_lib/ids";
 import { getActiveOtpSession } from "@/app/api/_lib/session";
 import { checkBotId } from "botid/server";
 import { rateCfg } from "@/config/rate";
+import { verifyWidgetSessionToken } from "@/lib/tenants/widgetToken";
 
 const ALLOWED_MODELS = new Set(["gpt-realtime", "gpt_realtime_mini"]);
 const ALLOWED_VOICES = new Set(["alloy", "coral"]);
@@ -16,7 +24,9 @@ function normalizeTools(raw: any): any[] {
   return raw.map((t: any, i: number) => {
     const rawName = t?.name ?? "unnamed_tool";
     if (!/^[a-zA-Z0-9_-]+$/.test(rawName)) {
-      throw new Error(`Tool name "${rawName}" (tools[${i}].name) is invalid. Use ^[a-zA-Z0-9_-]+$`);
+      throw new Error(
+        `Tool name "${rawName}" (tools[${i}].name) is invalid. Use ^[a-zA-Z0-9_-]+$`
+      );
     }
     const description = t?.description ?? "";
     const parameters =
@@ -28,39 +38,96 @@ function normalizeTools(raw: any): any[] {
 }
 
 async function safeJson(req: Request) {
-  try { return await req.json(); } 
-  catch { return {}; }
+  try {
+    return await req.json();
+  } catch {
+    return {};
+  }
 }
 
 type RealtimeSessionDoc = {
-  _id: string;          // "s:<emailHash>:<opaqueId>"
-  emailHash: string;
+  _id: string;          // "s:<identityKind>:<hash>:<opaqueId>"
+  identityKind: "console" | "widget";
+  emailHash?: string;
+  tenantId?: string;
   startedAt: Date;
   lastSeenAt: Date;
   active: boolean;
 };
 
+type AuthContext =
+  | {
+      kind: "console";
+      tenantId: string;
+      email: string;
+    }
+  | {
+      kind: "widget";
+      tenantId: string;
+      widgetKey: string;
+    };
+
 async function createSession(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "OPENAI_API_KEY not set" }, { status: 500 });
-  }
-
-  // 1) Bot check - suspicious automation
-  const verdict = await checkBotId();
-   if (verdict.isBot && !verdict.isVerifiedBot) {
     return NextResponse.json(
-        { error: "Bot verification failed", code: "BOT_BLOCKED",
-          userMessage: "We couldn’t verify this device. Please refresh and try again." },
-        { status: 403 }
-      );
+      { error: "OPENAI_API_KEY not set" },
+      { status: 500 }
+    );
   }
 
-  // 2) Require OTP session if policy says so
-  if (rateCfg.requireAuthForSession) {
-    const sess = await getActiveOtpSession(req as any);
-    if (!sess) return NextResponse.json(
-      { error: "No active session", code: "AUTH_REQUIRED",
-        userMessage: "Please sign in again to continue." },
+  // 1) Bot check
+  const verdict = await checkBotId();
+  if (verdict.isBot && !verdict.isVerifiedBot) {
+    return NextResponse.json(
+      {
+        error: "Bot verification failed",
+        code: "BOT_BLOCKED",
+        userMessage:
+          "We couldn’t verify this device. Please refresh and try again.",
+      },
+      { status: 403 }
+    );
+  }
+
+  // 2) Resolve auth context: console OR widget
+  let auth: AuthContext | null = null;
+
+  // 2a) console: OTP-based session (tenant_session cookie)
+  const otpSession = await getActiveOtpSession(req as any);
+  if (otpSession) {
+    auth = {
+      kind: "console",
+      tenantId: otpSession.tenantId,
+      email: otpSession.email,
+    };
+  }
+
+  // 2b) widget: JWT from Authorization header
+  if (!auth) {
+    const authHeader = req.headers.get("authorization") || "";
+    const match = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (match) {
+      const token = match[1].trim();
+      const claims = verifyWidgetSessionToken(token);
+      if (claims) {
+        auth = {
+          kind: "widget",
+          tenantId: claims.sub,
+          widgetKey: claims.key,
+        };
+      }
+    }
+  }
+
+  // 2c) DUAL CHECK - Enforce auth if config says so
+  if (rateCfg.requireAuthForSession && !auth) {
+    return NextResponse.json(
+      {
+        error: "No active session",
+        code: "AUTH_REQUIRED",
+        userMessage:
+          "Please sign in or use a valid widget to start a voice session.",
+      },
       { status: 401 }
     );
   }
@@ -68,31 +135,59 @@ async function createSession(req: NextRequest) {
   const body = await safeJson(req as any);
 
   // 3) Identity + sanitize inputs
-  const sess = await getActiveOtpSession(req as any);
-  const email = sess?.email || "anon"; // prefer server session over client
-  const emailHash = sha256Hex(email);
   const model = ALLOWED_MODELS.has(body.model) ? body.model : "gpt-realtime";
   const voice = ALLOWED_VOICES.has(body.voice) ? body.voice : "alloy";
   const tools = normalizeTools(body.tools);
 
-  // 4) Per-user concurrent sessions cap
-  const { db } = await getMongoConnection(process.env.DB!, process.env.MAINDBNAME!);
-  const sessions = db.collection<RealtimeSessionDoc>("realtime_sessions");
-  const maxConcurrent = rateCfg.maxConcurrentPerUser;
-  const activeCount = await sessions.countDocuments({ emailHash, active: true });
-  if (activeCount >= maxConcurrent) {
-      return NextResponse.json(
-        {
-          error: "Too many active sessions",
-          code: "CONCURRENT_SESSIONS",
-          userMessage:
-            "You already have an active voice session. Please close the other session or wait a moment, then try again.",
-        },
-        { status: 429 }
-      );
-    }
+  // identityKey is used for concurrency quotas
+  let identityKey: string;
+  let emailHash: string | undefined;
+  let tenantId: string | undefined;
+  let identityKind: "console" | "widget" = "widget";
 
-   // 5) Create OpenAI Realtime session
+  if (auth?.kind === "console") {
+    identityKind = "console";
+    emailHash = sha256Hex(auth.email || "anon");
+    tenantId = auth.tenantId;
+    identityKey = `console:${emailHash}`;
+  } else if (auth?.kind === "widget") {
+    identityKind = "widget";
+    tenantId = auth.tenantId;
+    const tenantHash = sha256Hex(tenantId);
+    identityKey = `widget:${tenantHash}`;
+  } else {
+    // fallback for unauthenticated flows if you ever allow them
+    identityKind = "widget";
+    identityKey = `anon:${sha256Hex("anon")}`;
+  }
+
+  // 4) Per-identity concurrent sessions cap
+  const { db } = await getMongoConnection(
+    process.env.DB!,
+    process.env.MAINDBNAME!
+  );
+  const sessions = db.collection<RealtimeSessionDoc>("realtime_sessions");
+  const maxConcurrent = rateCfg.maxConcurrentPerUser; // can later split per-tenant if you want
+  const activeCount = await sessions.countDocuments({
+    identityKind,
+    ...(emailHash ? { emailHash } : {}),
+    ...(tenantId ? { tenantId } : {}),
+    active: true,
+  });
+
+  if (activeCount >= maxConcurrent) {
+    return NextResponse.json(
+      {
+        error: "Too many active sessions",
+        code: "CONCURRENT_SESSIONS",
+        userMessage:
+          "There is already an active voice session. Please close the other session or wait a moment, then try again.",
+      },
+      { status: 429 }
+    );
+  }
+
+  // 5) Create OpenAI Realtime session
   const payload = {
     model,
     voice,
@@ -100,20 +195,21 @@ async function createSession(req: NextRequest) {
     instructions: body.instructions ?? "Be helpful and concise.",
     tool_choice: body.tool_choice ?? "auto",
     tools,
-    turn_detection: body.turn_detection ?? {
-      type: "server_vad",
-      threshold: 0.5,
-      prefix_padding_ms: 300,
-      silence_duration_ms: 200,
-      create_response: true,
-    },
+    turn_detection:
+      body.turn_detection ?? {
+        type: "server_vad",
+        threshold: 0.5,
+        prefix_padding_ms: 300,
+        silence_duration_ms: 200,
+        create_response: true,
+      },
   };
 
   const upstream = await fetch("https://api.openai.com/v1/realtime/sessions", {
     method: "POST",
-    headers: { 
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 
-      "Content-Type": "application/json" 
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   });
@@ -128,9 +224,19 @@ async function createSession(req: NextRequest) {
 
   // 6) Track local session for quotas/heartbeat/idle
   const opaqueId: string = data?.id || crypto.randomUUID();
+
   await sessions.updateOne(
-    { _id: `s:${emailHash}:${opaqueId}` },
-    { $set: { emailHash, startedAt: new Date(), lastSeenAt: new Date(), active: true } },
+    { _id: `s:${identityKind}:${identityKey}:${opaqueId}` },
+    {
+      $set: {
+        identityKind,
+        emailHash,
+        tenantId,
+        startedAt: new Date(),
+        lastSeenAt: new Date(),
+        active: true,
+      },
+    },
     { upsert: true }
   );
 
@@ -138,9 +244,6 @@ async function createSession(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  // Edge already enforced per-IP and per-USER per-minute. Here we enforce:
-  // - per-SESSION per-minute; and
-  // - daily token/$ quotas.
   return withRateLimit(req, () => createSession(req), {
     sessionPerMin: rateCfg.sessionPerMin,
     maxDailyTokens: rateCfg.maxDailyTokens,

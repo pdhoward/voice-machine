@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Phone, PhoneOff } from "lucide-react";
 import { useTenant } from "@/context/tenant-context";
 import { decodeJwt } from "jose"; // decode only; verification handled server-side

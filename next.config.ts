@@ -31,6 +31,12 @@ const nextConfig: NextConfig = {
         },
       ],    
   },
+  allowedDevOrigins: [
+    // marketing site dev origin:
+    "http://localhost:3000",
+    // ngrok tunnel (dev widget host)
+    "https://chaotic.ngrok.io",
+  ],
 };
 
 export default withBotId(nextConfig);

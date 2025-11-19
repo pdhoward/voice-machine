@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
         const normalizeHost = (host: string) =>
           host.replace(/^www\./i, "").toLowerCase();
 
-        const expectedHost = normalizeHost(expectedUrl.hostname); // e.g. "strategicmachines.ai"
+        const expectedHost = normalizeHost(expectedUrl.hostname); // e.g. "strategicmachines.ai" from tenant collection
         const actualHost = normalizeHost(actualUrl.hostname);     // e.g. "strategicmachines.ai"
 
         if (isProd && expectedHost !== actualHost) {
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
 
         if (!isProd && expectedHost !== actualHost) {
           console.warn(
-            "[widget-bootstrap] (dev) origin mismatch but allowed",
+            "[widget-bootstrap] In DEV origin mismatch is allowed",
             "expected host:",
             expectedHost,
             "got host:",
