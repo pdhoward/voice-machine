@@ -1,14 +1,14 @@
 import React from "react";
-import { motion } from "motion/react";
+import { motion, type Transition } from "motion/react";
 
-const loadingContainer = {
+const loadingContainer: React.CSSProperties = {
   width: "2rem",
   height: "2rem",
   display: "flex",
   justifyContent: "space-around",
 };
 
-const loadingCircle = {
+const loadingCircle: React.CSSProperties = {
   display: "block",
   width: "0.4rem",
   height: "0.4rem",
@@ -37,10 +37,12 @@ const loadingCircleVariants = {
   },
 };
 
-const loadingCircleTransition = {
+// Use Framer Motion 11-style transition
+const loadingCircleTransition: Transition = {
   duration: 0.5,
-  yoyo: Infinity,
-  ease: "easeInOut",
+  repeat: Infinity,
+  repeatType: "reverse",
+  ease: "easeInOut", // typed literal, ok for v11
 };
 
 interface ThreeDotsWaveProps {
@@ -60,7 +62,7 @@ export default function ThreeDotsWave({
       <motion.span
         style={{
           ...loadingCircle,
-          backgroundColor: `hsl(var(${colorVariable}))`, // Use HSL function for Tailwind CSS variables
+          backgroundColor: `hsl(var(${colorVariable}))`,
         }}
         variants={loadingCircleVariants}
         transition={loadingCircleTransition}
