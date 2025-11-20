@@ -104,8 +104,13 @@ async function createSession(req: NextRequest) {
 
   // 2b) widget: JWT from Authorization header
   if (!auth) {
+    console.log(`---------debug in session ------`)
     const authHeader = req.headers.get("authorization") || "";
     const match = authHeader.match(/^Bearer\s+(.+)$/i);
+
+    console.log(`authheader = ${authHeader}`)
+    console.log(`match = ${match}`)
+
     if (match) {
       const token = match[1].trim();
       const claims = verifyWidgetSessionToken(token);
@@ -116,6 +121,9 @@ async function createSession(req: NextRequest) {
           widgetKey: claims.key,
         };
       }
+      console.log(`token = ${token}`)
+      console.log(`claims = ${claims}`)
+      console.log(`auth = ${auth}`)
     }
   }
 

@@ -3,6 +3,7 @@
 
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import { TenantProvider } from "@/context/tenant-context";
 import { WidgetAgentPanel } from "@/components/widget/WidgetAgentPanel";
 
 // ---- Hook for auto-resizing iframe container ----
@@ -46,7 +47,7 @@ function useWidgetAutoResize() {
 
 export default function WidgetPageClient() {
   const params = useSearchParams();
-  const token = params.get("token");
+  const token = params.get("token"); // created by lib/tenants/widgetToken
   const tenantId = params.get("tenantId") ?? "machine";
 
   const containerRef = useWidgetAutoResize();
@@ -59,16 +60,14 @@ export default function WidgetPageClient() {
     );
   }
 
-  // 🔁 For now, WidgetAgentPanel can read tenantId from context or props
-  // If you later want, you can wrap this in a TenantProvider override:
-  // <TenantProvider tenantId={tenantId}>{...}</TenantProvider>
-
   return (
-    <div
-      ref={containerRef}
-      className="w-full max-w-sm bg-neutral-950 text-white rounded-t-2xl shadow-xl flex flex-col h-[420px]"
-    >
-      <WidgetAgentPanel />
-    </div>
+    <TenantProvider tenantId={tenantId} token={token}>
+      <div
+        ref={containerRef}
+        className="w-full max-w-sm bg-neutral-950 text-white rounded-t-2xl shadow-xl flex flex-col h-[420px]"
+      >
+        <WidgetAgentPanel />
+      </div>
+    </TenantProvider>
   );
 }

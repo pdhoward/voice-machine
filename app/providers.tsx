@@ -51,21 +51,21 @@ function ToolRegistryBridgeProvider({ children }: { children: React.ReactNode })
 
 export default function Providers({ children }: Props) {
   return (
-      <RealtimeProvider
-          options={{
-            model: 'gpt-realtime',
-            defaultVoice: 'alloy',
-            appendModelVoiceToUrl: true,
-            // turnDetection: { type: 'server_vad', threshold: 0.5, ... } // optional
-          }}
-        >   
-        <TenantProvider>
+      <TenantProvider>
+        <RealtimeProvider
+            options={{
+              model: 'gpt-realtime',
+              defaultVoice: 'alloy',
+              appendModelVoiceToUrl: true,
+              // turnDetection: { type: 'server_vad', threshold: 0.5, ... } // optional
+            }}
+          >          
            <ToolRegistryBridgeProvider>
             <TranslationsProvider>
               {children}
             </TranslationsProvider>
-          </ToolRegistryBridgeProvider >
-        </TenantProvider>
-     </RealtimeProvider>
+          </ToolRegistryBridgeProvider >        
+        </RealtimeProvider>
+     </TenantProvider>
   );
 }

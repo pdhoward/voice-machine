@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
       tenant,
       widgetKeyEntry: widgetEntry,
       origin,
-      // you can go back to "30m" or leave undefined when you're ready
+      //  undefined is indefinite. or can be set to "30m"
       ttl: undefined,
     });
 

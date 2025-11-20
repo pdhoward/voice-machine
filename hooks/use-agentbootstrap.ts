@@ -17,7 +17,7 @@ import type { StructuredPrompt } from "@/types/prompt";
 import promptsJson from "@/promptlibrary/prompts.json";
 
 export function useAgentBootstrap() {
-  const { tenantId } = useTenant();
+  const { tenantId, token } = useTenant();
 
   const {
     status,

@@ -12,6 +12,7 @@ import React, {
 import { WebRTCClient } from '@/lib/realtime';
 import { toast } from "sonner";
 import { getToastParams, getToastParamsFromUnknownError } from "@/lib/toast-errors";
+import {useTenant} from "@/context/tenant-context"
 
 import type { ConversationItem, AgentConfigInput as ClientAgentConfig } from '@/lib/realtime';
 
@@ -149,11 +150,16 @@ export function RealtimeProvider({
 
   }, [options?.onServerEvent, maxEvents]);
 
+  const {tenantId, token} = useTenant()
+
   const tokenProvider = useCallback(async () => {
       const agent = agentRef.current || {};
       const res = await fetch("/api/session", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+           ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         credentials: "include",
         body: JSON.stringify({
           model,
@@ -219,7 +225,7 @@ export function RealtimeProvider({
       clientRef.current?.setSmSessionId?.(body?.sm_session_id ?? null);
 
       return body.client_secret.value as string; // success path
-}, [model, defaultVoice, turnDetection]);
+}, [model, defaultVoice, turnDetection, token]);
 
   // Create a single durable client
   if (!clientRef.current) {

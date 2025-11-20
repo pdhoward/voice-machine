@@ -307,7 +307,7 @@
       var baseUrl;
       try {
         var url = new URL(scriptSrc, window.location.href);
-        baseUrl = url.origin;
+        baseUrl = url.origin;        
       } catch (e) {
         baseUrl = "https://chaotic.ngrok.io";
       }
