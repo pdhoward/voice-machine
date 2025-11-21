@@ -129,6 +129,8 @@ export async function GET(req: NextRequest) {
       //  undefined is indefinite. or can be set to "30m"
       ttl: undefined,
     });
+    console.log("=====PUBLIC WIDGET API =====")
+    console.log(JSON.stringify(widgetSessionToken))
 
     return withCORS(
       {

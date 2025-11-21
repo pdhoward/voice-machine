@@ -36,6 +36,8 @@ const nextConfig: NextConfig = {
     "http://localhost:3000",
     // ngrok tunnel (dev widget host)
     "https://chaotic.ngrok.io",
+    "local-origin.dev", 
+    "*.local-origin.dev"
   ],
 };
 

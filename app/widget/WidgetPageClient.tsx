@@ -50,6 +50,10 @@ export default function WidgetPageClient() {
   const token = params.get("token"); // created by lib/tenants/widgetToken
   const tenantId = params.get("tenantId") ?? "machine";
 
+  console.log("====widget/widgetpageclient =====")
+  console.log(`token - ${token}`)
+  console.log(`tenantId - ${tenantId}`)
+
   const containerRef = useWidgetAutoResize();
 
   if (!token) {
