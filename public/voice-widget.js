@@ -194,58 +194,53 @@
     });
 
     // ─────────────────────────────────────────────
-    // Inline SVG icon (VoiceIcon)
+    // Inline SVG icon (VoiceIcon) (Speech bubble with dots)
     // ─────────────────────────────────────────────
+ 
     var svgNS = "http://www.w3.org/2000/svg";
     var svg = document.createElementNS(svgNS, "svg");
     svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-    svg.setAttribute("width", "28");
-    svg.setAttribute("height", "28");
+    svg.setAttribute("width", "26");
+    svg.setAttribute("height", "26");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("fill", "none");
-    svg.setAttribute("stroke", primaryColor);
-    svg.setAttribute("stroke-width", "2");
-    svg.setAttribute("stroke-linecap", "round");
-    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("stroke", "none");
 
-    var rect = document.createElementNS(svgNS, "rect");
-    rect.setAttribute("width", "24");
-    rect.setAttribute("height", "24");
-    rect.setAttribute("fill", "white");
-    svg.appendChild(rect);
+    // Soft circular backdrop to keep it feeling “orb-y”
+    var bgCircle = document.createElementNS(svgNS, "circle");
+    bgCircle.setAttribute("cx", "12");
+    bgCircle.setAttribute("cy", "12");
+    bgCircle.setAttribute("r", "11");
+    bgCircle.setAttribute("fill", "#ffffff");
+    bgCircle.setAttribute("fill-opacity", "0.95");
+    svg.appendChild(bgCircle);
 
-    var circle = document.createElementNS(svgNS, "circle");
-    circle.setAttribute("cx", "12");
-    circle.setAttribute("cy", "12");
-    circle.setAttribute("r", "10");
-    svg.appendChild(circle);
+    // Speech bubble
+    var bubble = document.createElementNS(svgNS, "path");
+    // Rounded speech bubble with tail
+    bubble.setAttribute(
+      "d",
+      "M4 7a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v5.5a4 4 0 0 1-4 4H13l-2.8 2.8c-.6.6-1.6.2-1.6-.6V16H8a4 4 0 0 1-4-4V7z"
+    );
+    bubble.setAttribute("fill", "#ffffff");
+    bubble.setAttribute("stroke", primaryColor);
+    bubble.setAttribute("stroke-width", "1.7");
+    bubble.setAttribute("stroke-linejoin", "round");
+    svg.appendChild(bubble);
 
-    var p1 = document.createElementNS(svgNS, "path");
-    p1.setAttribute("d", "M5.969 4a9.12 9.12 0 0 1 12.061 0");
-    svg.appendChild(p1);
+  // Three dots inside bubble (typing / ongoing conversation feel)
+  function makeDot(cx) {
+    var dot = document.createElementNS(svgNS, "circle");
+    dot.setAttribute("cx", String(cx));
+    dot.setAttribute("cy", "10.3");
+    dot.setAttribute("r", "0.85");
+    dot.setAttribute("fill", primaryColor);
+    return dot;
+    }
 
-    var p2 = document.createElementNS(svgNS, "path");
-    p2.setAttribute("d", "M8.01 7.55a6.27 6.27 0 0 1 8.026 0");
-    svg.appendChild(p2);
-
-    var p3 = document.createElementNS(svgNS, "path");
-    p3.setAttribute("d", "M10.02 11.11a3.42 3.42 0 0 1 3.962 0");
-    svg.appendChild(p3);
-
-    var dot = document.createElementNS(svgNS, "line");
-    dot.setAttribute("x1", "12");
-    dot.setAttribute("y1", "15");
-    dot.setAttribute("x2", "12");
-    dot.setAttribute("y2", "15");
-    svg.appendChild(dot);
-
-    var baseRect = document.createElementNS(svgNS, "rect");
-    baseRect.setAttribute("x", "8");
-    baseRect.setAttribute("y", "17");
-    baseRect.setAttribute("width", "8");
-    baseRect.setAttribute("height", "2");
-    baseRect.setAttribute("rx", "1");
-    svg.appendChild(baseRect);
+    svg.appendChild(makeDot(9));
+    svg.appendChild(makeDot(12));
+    svg.appendChild(makeDot(15));
 
     btn.appendChild(svg);
 

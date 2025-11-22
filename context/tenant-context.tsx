@@ -45,10 +45,6 @@ export function TenantProvider({
     [tenantId, token]
   );
 
-  console.log(`===============tenant provider context ==========`)
-  console.log(`token = ${token}`)
-  console.log(`tenantId = ${tenantId}`)
-
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
 }
 

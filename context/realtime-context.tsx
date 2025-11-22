@@ -150,10 +150,7 @@ export function RealtimeProvider({
 
   }, [options?.onServerEvent, maxEvents]);
 
-  const {tenantId, token} = useTenant()
-  console.log(`=============inside of realtime context==============`)
-  console.log(`tenantId = ${tenantId}`)
-  console.log(`token = ${token}`)
+  const {tenantId, token} = useTenant() 
 
   const tokenProvider = useCallback(async () => {
       const agent = agentRef.current || {};
