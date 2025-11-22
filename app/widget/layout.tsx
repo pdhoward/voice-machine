@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 import { Toaster } from "@/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/react";
-import Providers from "@/app/providers";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,8 +40,8 @@ export default function ConsoleLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (    
-      <Providers>       
+  return (
+      <>
         <div
           className={cn(
             "relative flex min-h-dvh flex-col bg-background items-center",
@@ -54,6 +54,6 @@ export default function ConsoleLayout({
         </div>
         <Toaster />       
         <Analytics />
-      </Providers>   
+      </>     
   );
 }

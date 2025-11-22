@@ -3,7 +3,6 @@
 
 import React, {useCallback} from "react";
 import { RealtimeProvider, useRealtime } from "@/context/realtime-context";
-import { TenantProvider } from "@/context/tenant-context";
 import { TranslationsProvider } from "@/context/translations-context";
 import { ToolRegistryProvider } from "@/context/registry-context";
 
@@ -50,8 +49,7 @@ function ToolRegistryBridgeProvider({ children }: { children: React.ReactNode })
 }
 
 export default function Providers({ children }: Props) {
-  return (
-      <TenantProvider>
+  return (     
         <RealtimeProvider
             options={{
               model: 'gpt-realtime',
@@ -65,7 +63,6 @@ export default function Providers({ children }: Props) {
               {children}
             </TranslationsProvider>
           </ToolRegistryBridgeProvider >        
-        </RealtimeProvider>
-     </TenantProvider>
+        </RealtimeProvider>    
   );
 }

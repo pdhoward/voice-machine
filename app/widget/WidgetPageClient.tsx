@@ -3,6 +3,7 @@
 
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import Providers from "@/app/providers";
 import { TenantProvider } from "@/context/tenant-context";
 import { WidgetAgentPanel } from "@/components/widget/WidgetAgentPanel";
 
@@ -64,14 +65,16 @@ export default function WidgetPageClient() {
     );
   }
 
-  return (
+  return (    
     <TenantProvider tenantId={tenantId} token={token}>
-      <div
-        ref={containerRef}
-        className="w-full max-w-sm bg-neutral-950 text-white rounded-t-2xl shadow-xl flex flex-col h-[420px]"
-      >
-        <WidgetAgentPanel />
-      </div>
+      <Providers>     
+        <div
+          ref={containerRef}
+          className="w-full max-w-sm bg-neutral-950 text-white rounded-t-2xl shadow-xl flex flex-col h-[420px]"
+        >
+          <WidgetAgentPanel />
+        </div>  
+      </Providers>
     </TenantProvider>
   );
 }

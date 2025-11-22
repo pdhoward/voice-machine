@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 
 import { Header } from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
+import { TenantProvider } from "@/context/tenant-context";
 import { siteConfig } from "@/config/site";
 import { Toaster } from "@/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/react";
@@ -53,28 +54,30 @@ export default function ConsoleLayout({
       enableSystem
       disableTransitionOnChange
     >
-      <Providers>
-        {/* BotId can live here; App Router will merge it into <head> properly */}
-        <BotIdClient protect={protectedRoutes} />
+      <TenantProvider >    
+        <Providers>
+          {/* BotId can live here; App Router will merge it into <head> properly */}
+          <BotIdClient protect={protectedRoutes} />
 
-        <div
-          className={cn(
-            "relative flex min-h-dvh flex-col bg-background items-center",
-            geistSans.variable
-          )}
-        >
-          <Banner />
-          <Header />
+          <div
+            className={cn(
+              "relative flex min-h-dvh flex-col bg-background items-center",
+              geistSans.variable
+            )}
+          >
+            <Banner />
+            <Header />
 
-          <main className="flex flex-1 justify-center items-start w-full">
-            {children}
-          </main>
-        </div>
+            <main className="flex flex-1 justify-center items-start w-full">
+              {children}
+            </main>
+          </div>
 
-        <Toaster />
-        <ToolRegistryPanel />
-        <Analytics />
-      </Providers>
+          <Toaster />
+          <ToolRegistryPanel />
+          <Analytics />
+        </Providers>
+      </TenantProvider>
     </ThemeProvider>
   );
 }
