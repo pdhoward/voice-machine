@@ -45,6 +45,36 @@ async function safeJson(req: Request) {
   }
 }
 
+async function resolveAuth(req: NextRequest): Promise<AuthContext | null> {
+  // 2a) console: OTP-based session (tenant_session cookie)
+  const otpSession = await getActiveOtpSession(req as any);
+  if (otpSession) {
+    return {
+      kind: "console",
+      tenantId: otpSession.tenantId,
+      email: otpSession.email,
+    };
+  }
+
+  // 2b) widget: JWT from Authorization header
+  const authHeader = req.headers.get("authorization") || "";
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (match) {
+    const token = match[1].trim();
+    const claims = verifyWidgetSessionToken(token);
+    if (claims) {
+      return {
+        kind: "widget",
+        tenantId: claims.sub,
+        widgetKey: claims.key,
+      };
+    }
+  }
+
+  return null;
+}
+
+
 type RealtimeSessionDoc = {
   _id: string;          // "s:<identityKind>:<hash>:<opaqueId>"
   identityKind: "console" | "widget";
@@ -67,17 +97,38 @@ type AuthContext =
       widgetKey: string;
     };
 
-async function createSession(req: NextRequest) {
+async function createSession(
+  req: NextRequest,
+  auth: AuthContext | null,
+  limits: ReturnType<typeof rateCfg.getLimits>
+) {
   if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json(
-      { error: "OPENAI_API_KEY not set" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "OPENAI_API_KEY not set" }, { status: 500 });
   }
 
-  // 1) Bot check
-  const verdict = await checkBotId();
-  if (verdict.isBot && !verdict.isVerifiedBot) {
+  /////////////////////////////////////////////
+  //
+  // NOTE - demo traffic (console) needs aggressive bot checks
+  // The commercial (widget) traffic is strongly authed via JWT, IP Rates, 
+  //   per tenant quotes, concurrency limits, and tests of url origin
+  //
+  ////////////////////////////////////////////
+  
+  let verdict;
+  try {
+    verdict = await checkBotId();
+  } catch {
+    verdict = null;
+  }
+
+  const isConsoleOrUnauth = !auth || auth.kind === "console";
+
+  if (
+    isConsoleOrUnauth &&
+    verdict &&
+    verdict.isBot &&
+    !verdict.isVerifiedBot
+  ) {
     return NextResponse.json(
       {
         error: "Bot verification failed",
@@ -87,37 +138,6 @@ async function createSession(req: NextRequest) {
       },
       { status: 403 }
     );
-  }
-
-  // 2) Resolve auth context: console OR widget
-  let auth: AuthContext | null = null;
-
-  // 2a) console: OTP-based session (tenant_session cookie)
-  const otpSession = await getActiveOtpSession(req as any);
-  if (otpSession) {
-    auth = {
-      kind: "console",
-      tenantId: otpSession.tenantId,
-      email: otpSession.email,
-    };
-  }
-
-  // 2b) widget: JWT from Authorization header
-  if (!auth) {   
-    const authHeader = req.headers.get("authorization") || "";
-    const match = authHeader.match(/^Bearer\s+(.+)$/i);   
-
-    if (match) {
-      const token = match[1].trim();
-      const claims = verifyWidgetSessionToken(token);
-      if (claims) {
-        auth = {
-          kind: "widget",
-          tenantId: claims.sub,
-          widgetKey: claims.key,
-        };
-      }     
-    }
   }
 
   // 2c) DUAL CHECK - Enforce auth if config says so
@@ -135,12 +155,11 @@ async function createSession(req: NextRequest) {
 
   const body = await safeJson(req as any);
 
-  // 3) Identity + sanitize inputs
+  // 3) Identity + sanitize inputs (unchanged)
   const model = ALLOWED_MODELS.has(body.model) ? body.model : "gpt-realtime";
   const voice = ALLOWED_VOICES.has(body.voice) ? body.voice : "alloy";
   const tools = normalizeTools(body.tools);
 
-  // identityKey is used for concurrency quotas
   let identityKey: string;
   let emailHash: string | undefined;
   let tenantId: string | undefined;
@@ -157,18 +176,13 @@ async function createSession(req: NextRequest) {
     const tenantHash = sha256Hex(tenantId);
     identityKey = `widget:${tenantHash}`;
   } else {
-    // fallback for unauthenticated flows if you ever allow them
     identityKind = "widget";
     identityKey = `anon:${sha256Hex("anon")}`;
   }
 
-  // 4) Per-identity concurrent sessions cap
-  const { db } = await getMongoConnection(
-    process.env.DB!,
-    process.env.MAINDBNAME!
-  );
+  // 4) Per-identity concurrent sessions cap, now using limits.maxConcurrent
+  const { db } = await getMongoConnection(process.env.DB!, process.env.MAINDBNAME!);
   const sessions = db.collection<RealtimeSessionDoc>("realtime_sessions");
-  const maxConcurrent = rateCfg.maxConcurrentPerUser; // can later split per-tenant if you want
   const activeCount = await sessions.countDocuments({
     identityKind,
     ...(emailHash ? { emailHash } : {}),
@@ -176,7 +190,7 @@ async function createSession(req: NextRequest) {
     active: true,
   });
 
-  if (activeCount >= maxConcurrent) {
+  if (activeCount >= limits.maxConcurrent) {
     return NextResponse.json(
       {
         error: "Too many active sessions",
@@ -188,7 +202,7 @@ async function createSession(req: NextRequest) {
     );
   }
 
-  // 5) Create OpenAI Realtime session
+  // 5) Create OpenAI Realtime session (unchanged)
   const payload = {
     model,
     voice,
@@ -223,7 +237,7 @@ async function createSession(req: NextRequest) {
 
   const data = await upstream.json();
 
-  // 6) Track local session for quotas/heartbeat/idle
+  // 6) Track local session
   const opaqueId: string = data?.id || crypto.randomUUID();
 
   await sessions.updateOne(
@@ -233,6 +247,8 @@ async function createSession(req: NextRequest) {
         identityKind,
         emailHash,
         tenantId,
+        identityKey,
+        smSessionId: opaqueId,
         startedAt: new Date(),
         lastSeenAt: new Date(),
         active: true,
@@ -244,10 +260,18 @@ async function createSession(req: NextRequest) {
   return NextResponse.json({ ...data, sm_session_id: opaqueId });
 }
 
+
 export async function POST(req: NextRequest) {
-  return withRateLimit(req, () => createSession(req), {
-    sessionPerMin: rateCfg.sessionPerMin,
-    maxDailyTokens: rateCfg.maxDailyTokens,
-    maxDailyDollars: rateCfg.maxDailyDollars,
-  });
+  const auth = await resolveAuth(req);
+  const limits = rateCfg.getLimits(auth?.kind);
+
+  return withRateLimit(
+    req,
+    () => createSession(req, auth, limits),
+    {
+      sessionPerMin: limits.sessionPerMin,
+      maxDailyTokens: limits.maxDailyTokens,
+      maxDailyDollars: limits.maxDailyDollars,
+    }
+  );
 }
