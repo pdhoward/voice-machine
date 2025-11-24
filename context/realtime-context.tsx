@@ -125,6 +125,8 @@ export function RealtimeProvider({
   const [volume, setVolume] = useState(0);
   const [events, setEvents] = useState<any[]>([]); 
 
+  const {tenantId, token} = useTenant() 
+
   // wire events buffer + external onServerEvent
   const handleServerEvent = useCallback((ev: any) => {
     setEvents(prev => {
@@ -144,13 +146,15 @@ export function RealtimeProvider({
         body: JSON.stringify({
           ...u,
           sm_session_id: clientRef.current?.getSmSessionId() ?? null,
+          authToken: token ?? undefined,  // 🔹 widget/commercial auth
+          tenantId,                       // 🔹 for sanity/check + per-tenant usage
         }),
       }).catch(() => {});
     }
 
   }, [options?.onServerEvent, maxEvents]);
 
-  const {tenantId, token} = useTenant() 
+  
 
   const tokenProvider = useCallback(async () => {
       const agent = agentRef.current || {};
@@ -343,7 +347,11 @@ export function RealtimeProvider({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ sm_session_id: id }),
+          body: JSON.stringify({ 
+            sm_session_id: id,
+            authToken: token ?? undefined, // 🔹 widget/commercial auth
+            tenantId,                      // 🔹 for tenant scoping
+          }),
         }).catch(() => {});
       };
       run(); // send one immediately

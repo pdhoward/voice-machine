@@ -10,9 +10,14 @@ type ConvItem = { id: string; role: string; text?: string; timestamp: number };
 type Props = {
   conversation: ConvItem[];
   onDownload: () => void;
+  active?: boolean;
 };
 
-export default function TranscriptDialogTrigger({ conversation, onDownload }: Props) {
+export default function TranscriptDialogTrigger({
+  conversation,
+  onDownload,
+  active = true,
+}: Props) {
   const [q, setQ] = useState("");
 
   const rows = useMemo(() => {
@@ -28,13 +33,16 @@ export default function TranscriptDialogTrigger({ conversation, onDownload }: Pr
       .slice(-200);
   }, [conversation, q]);
 
+  const iconClass = active ? "text-emerald-500" : "text-neutral-500";
+
   return (
     <Dialog>
       <DialogTrigger asChild>
         <TriggerIconButton title="Transcripts">
-          <Captions size={14} />
+          <Captions size={14} className={iconClass} />
         </TriggerIconButton>
       </DialogTrigger>
+
 
       <DialogContent className="bg-neutral-900 text-neutral-200 border border-neutral-800 max-w-[90vw] max-h-[80vh] w-[420px] h-[440px] flex flex-col">
         <DialogHeader>

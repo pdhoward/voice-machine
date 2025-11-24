@@ -52,7 +52,7 @@ export default function ConsoleLayout({
             {children}
           </main>
         </div>
-        <Toaster />       
+        <Toaster theme="dark" richColors />      
         <Analytics />
       </>     
   );

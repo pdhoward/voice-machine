@@ -1,4 +1,3 @@
-
 // hooks/use-agentbootstrap.ts
 "use client";
 
@@ -8,13 +7,17 @@ import { useRealtime } from "@/context/realtime-context";
 
 import { fetchTenantHttpTools } from "@/lib/registry/fetchTenantTools";
 import { registerHttpToolsForTenant } from "@/lib/agent/registerTenantHttpTools";
-import { selectPromptForTenant, buildInstructions } from "@/lib/agent/managePrompts";
+import {
+  selectPromptForTenant,
+  buildInstructions,
+} from "@/lib/agent/managePrompts";
 
 import { coreTools } from "@/types/tools";
 import type { ToolDef } from "@/types/tools";
 import type { StructuredPrompt } from "@/types/prompt";
 
 import promptsJson from "@/promptlibrary/prompts.json";
+import { useTranscriptSink } from "@/hooks/use-transcript-sink";
 
 export function useAgentBootstrap() {
   const { tenantId, token } = useTenant();
@@ -29,6 +32,7 @@ export function useAgentBootstrap() {
     updateSession,
     registerFunction,
     unregisterFunctionsByPrefix,
+    conversation,
   } = useRealtime();
 
   // Bootstrap tools + system prompt whenever tenant changes
@@ -37,14 +41,11 @@ export function useAgentBootstrap() {
 
     (async () => {
       try {
-        // Clear tenant-scoped tools (if you name them with "http_" prefix)
         unregisterFunctionsByPrefix("http_");
 
-        // Register HTTP tools for this tenant
         const httpToolDefs = await registerHttpToolsForTenant({
           tenantId,
           registerFunction,
-          // For widget, we don't (yet) show rich visual components
           showOnStage: () => {},
           hideStage: () => {},
           cap: 64,
@@ -53,7 +54,6 @@ export function useAgentBootstrap() {
           },
         });
 
-        // Prompt selection + instructions
         const { name: agentName, base } = selectPromptForTenant(
           tenantId,
           promptsJson as StructuredPrompt | StructuredPrompt[]
@@ -70,7 +70,6 @@ export function useAgentBootstrap() {
           buildInstructions(base, exposedToolDefs),
         ].join("\n\n");
 
-        // Configure the agent for this session
         setAgent({
           name: agentName || tenantId,
           voice: "alloy",
@@ -81,7 +80,10 @@ export function useAgentBootstrap() {
           instructions: SYSTEM_PROMPT,
         });
       } catch (err) {
-        console.error("[useAgentBootstrap] error bootstrapping agent", err);
+        console.error(
+          "[useAgentBootstrap] error bootstrapping agent",
+          err
+        );
       }
     })();
   }, [
@@ -92,6 +94,15 @@ export function useAgentBootstrap() {
     updateSession,
   ]);
 
+  // 🔹 Transcripts for BOTH console + widget:
+  // - console: token will be undefined, source defaults to "console"
+  // - widget: token + tenantId are set from TenantProvider
+  useTranscriptSink(conversation as any, {
+    authToken: token ?? undefined,
+    tenantId,
+    source: "widget",
+  });
+
   const isConnected = status === "CONNECTED";
 
   return {
@@ -101,6 +112,6 @@ export function useAgentBootstrap() {
     connect,
     disconnect,
     sendText,
+    conversation,
   };
 }
-
