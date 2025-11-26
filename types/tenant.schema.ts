@@ -140,8 +140,15 @@ const PersonaSchema = z.object({
   closing: z.string().optional(),
 });
 
+
+const AgentRepoSchema = z.object({
+  provider: z.enum(["github"]),  
+  baseRawUrl: z.string().url(),  // e.g. "https://raw.githubusercontent.com/org/repo/main/agents"
+});
+
 const AgentSettingsSchema = z.object({
   defaultAgentId: z.string().optional(),
+  agentRepo: AgentRepoSchema.optional(),
   allowedTools: z.array(z.string()).default([]),
   maxParallelSessions: z.number().default(10),
   persona: PersonaSchema.optional(),

@@ -1,0 +1,85 @@
+// lib/tenant/getTenantConfig.ts
+import getMongoConnection from "@/db/connections";
+import { TenantSchema, type Tenant } from "@/types/tenant.schema";
+
+const TENANTS_COLLECTION = "tenants";
+
+// Optional helper if you ever ingest extended JSON (Compass exports, etc.)
+function unwrapMongoExtendedJSON(v: any): any {
+  // 👇 IMPORTANT: preserve real Date instances as-is
+  if (v instanceof Date) return v;
+
+  if (Array.isArray(v)) return v.map(unwrapMongoExtendedJSON);
+
+  if (v && typeof v === "object") {
+    // Handle Mongo Extended JSON numeric types
+    if ("$numberInt" in v) return parseInt((v as any).$numberInt, 10);
+    if ("$numberLong" in v) return parseInt((v as any).$numberLong, 10);
+    if ("$numberDouble" in v) return parseFloat((v as any).$numberDouble);
+    if ("$numberDecimal" in v) return Number((v as any).$numberDecimal);
+
+    // Handle Mongo Extended JSON date types
+    if ("$date" in v) {
+      const raw = (v as any).$date;
+      if (typeof raw === "string") return new Date(raw);
+      if (raw && typeof raw === "object" && "$numberLong" in raw) {
+        return new Date(Number((raw as any).$numberLong));
+      }
+    }
+
+    // Generic object – recurse into its props
+    const out: Record<string, any> = {};
+    for (const [k, val] of Object.entries(v)) {
+      out[k] = unwrapMongoExtendedJSON(val);
+    }
+    return out;
+  }
+
+  return v;
+}
+
+async function getWebDb() {
+  const uri = process.env.DB;
+  const dbName = process.env.WEBDBNAME;
+  if (!uri || !dbName) {
+    throw new Error("Missing DB or WEBDBNAME env variables");
+  }
+  const { db } = await getMongoConnection(uri, dbName);
+  return db;
+}
+
+/**
+ * Core loader by arbitrary filter.
+ * Used by both tenantId + widgetKey lookups.
+ */
+async function loadTenant(filter: Record<string, any>): Promise<Tenant | null> {
+  const db = await getWebDb();
+  const raw = await db.collection(TENANTS_COLLECTION).findOne(filter);
+
+  if (!raw) return null;
+
+  const cleaned = unwrapMongoExtendedJSON(raw);
+  const parsed = TenantSchema.safeParse(cleaned);
+  if (!parsed.success) {
+    console.error("[getTenantConfig] schema error", parsed.error.format());
+    return null;
+  }
+  return parsed.data;
+}
+
+/**
+ * Primary entrypoint: load tenant config by tenantId.
+ */
+export async function getTenantConfig(tenantId: string): Promise<Tenant | null> {
+  return loadTenant({ tenantId });
+}
+
+/**
+ * Convenience: load tenant config by widget key (for public widgets).
+ */
+export async function getTenantConfigByWidgetKey(widgetKey: string): Promise<Tenant | null> {
+  return loadTenant({
+    "widgetKeys.key": widgetKey,
+    status: { $in: ["active", "trial"] },
+  });
+}

@@ -62,6 +62,7 @@
     "embla-carousel-react": "^8.5.1",
     "input-otp": "^1.4.2",
     "jose": "^6.1.0",
+    "js-yaml": "^4.1.1",
     "jsonwebtoken": "^9.0.2",
     "lru-cache": "^11.2.1",
     "lucide-react": "^0.468.0",
@@ -92,6 +93,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@types/js-yaml": "^4.0.9",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.19.11",
     "@types/nodemailer": "^7.0.2",
