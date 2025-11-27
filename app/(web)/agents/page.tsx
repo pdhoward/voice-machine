@@ -1,3 +1,4 @@
+// app/(web)/agents/page.tsx
 "use client";
 
 import * as React from "react";
@@ -22,6 +23,18 @@ type AgentDetailResponse = {
   error?: string;
 };
 
+type AdminTenantItem = {
+  tenantId: string;
+  name: string;
+  status: string;
+};
+
+type AdminTenantListResponse = {
+  ok: boolean;
+  tenants: AdminTenantItem[];
+  error?: string;
+};
+
 function SectionCard({
   title,
   children,
@@ -37,11 +50,7 @@ function SectionCard({
   );
 }
 
-function Badge({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function Badge({ children }: { children: React.ReactNode }) {
   return (
     <span className="inline-flex items-center rounded-full bg-neutral-800 px-2 py-0.5 text-xs font-medium text-neutral-200">
       {children}
@@ -50,7 +59,19 @@ function Badge({
 }
 
 export default function AgentsAdminPage() {
-  const { tenantId } = useTenant();
+  const { tenantId: contextTenantId } = useTenant();
+
+  // Admin tenant selection
+  const [tenants, setTenants] = React.useState<AdminTenantItem[]>([]);
+  const [tenantsLoading, setTenantsLoading] = React.useState(true);
+  const [tenantsError, setTenantsError] = React.useState<string | null>(null);
+
+  // Selected tenant (admin can change); default = contextTenantId
+  const [selectedTenantId, setSelectedTenantId] = React.useState<string | null>(
+    null
+  );
+
+  // Agents for selected tenant
   const [loadingList, setLoadingList] = React.useState(true);
   const [loadingAgent, setLoadingAgent] = React.useState(false);
   const [listError, setListError] = React.useState<string | null>(null);
@@ -62,34 +83,125 @@ export default function AgentsAdminPage() {
   );
   const [agent, setAgent] = React.useState<StructuredPrompt | null>(null);
 
-  // Fetch list of agents for this tenant
+  // Load all tenants (admin view)
   React.useEffect(() => {
-    if (!tenantId) return;
-
     (async () => {
-      setLoadingList(true);
-      setListError(null);
+      setTenantsLoading(true);
+      setTenantsError(null);
       try {
-        const res = await fetch(`/api/agents?tenantId=${encodeURIComponent(tenantId)}`);
-        const json: AgentListResponse = await res.json();
-        if (!res.ok || !json.ok) {
-          throw new Error(json.error || `HTTP ${res.status}`);
+        const res = await fetch("/api/agents/tenants");
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(
+            text && text.trim().startsWith("<")
+              ? `Server returned HTML error (status ${res.status})`
+              : text || `HTTP ${res.status}`
+          );
         }
-        setAgents(json.agents || []);
-        if (json.agents.length > 0) {
-          setSelectedAgentId(json.agents[0].agentId);
+        let json: AdminTenantListResponse;
+        try {
+          json = (await res.json()) as AdminTenantListResponse;
+        } catch (parseErr: any) {
+          throw new Error(
+            `Failed to parse tenants response as JSON: ${
+              parseErr?.message || String(parseErr)
+            }`
+          );
+        }
+        if (!json.ok) {
+          throw new Error(json.error || "Tenants response not ok.");
+        }
+        setTenants(json.tenants || []);
+        // Default selection: context tenantId if present in list; else first
+        const contextInList = json.tenants.find(
+          (t) => t.tenantId === contextTenantId
+        );
+        if (contextInList) {
+          setSelectedTenantId(contextInList.tenantId);
+        } else if (json.tenants.length > 0) {
+          setSelectedTenantId(json.tenants[0].tenantId);
+        } else {
+          setSelectedTenantId(null);
         }
       } catch (e: any) {
-        setListError(e?.message || "Failed to load agents.");
+        setTenantsError(e?.message || "Failed to load tenant list.");
+        setTenants([]);
+        setSelectedTenantId(null);
       } finally {
-        setLoadingList(false);
+        setTenantsLoading(false);
       }
     })();
-  }, [tenantId]);
+  }, [contextTenantId]);
 
-  // Fetch selected agent details
+  const effectiveTenantId = selectedTenantId ?? contextTenantId ?? "";
+
+  // Fetch list of agents for the selected tenant
+    React.useEffect(() => {
+      if (!effectiveTenantId) {
+        setAgents([]);
+        setSelectedAgentId(null);
+        return;
+      }
+
+      (async () => {
+        setLoadingList(true);
+        setListError(null);
+        try {
+          const res = await fetch(
+            `/api/agents?tenantId=${encodeURIComponent(effectiveTenantId)}`
+          );
+
+          if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            throw new Error(
+              text && text.trim().startsWith("<")
+                ? `Server returned HTML error (status ${res.status})`
+                : text || `HTTP ${res.status}`
+            );
+          }
+
+          let raw: any;
+          try {
+            raw = await res.json();
+          } catch (parseErr: any) {
+            throw new Error(
+              `Failed to parse /api/agents response as JSON: ${
+                parseErr?.message || String(parseErr)
+              }`
+            );
+          }
+
+          // Normalize shape defensively
+          const ok = Boolean(raw?.ok);
+          const agentsArray: AgentListItem[] = Array.isArray(raw?.agents)
+            ? raw.agents
+            : [];
+
+          if (!ok) {
+            throw new Error(raw?.error || "Agent list not ok.");
+          }
+
+          setAgents(agentsArray);
+
+          if (agentsArray.length > 0) {
+            setSelectedAgentId(agentsArray[0].agentId);
+          } else {
+            setSelectedAgentId(null);
+          }
+        } catch (e: any) {
+          setListError(e?.message || "Failed to load agents.");
+          setAgents([]);
+          setSelectedAgentId(null);
+        } finally {
+          setLoadingList(false);
+        }
+      })();
+    }, [effectiveTenantId]);
+
+
+  // Fetch selected agent for selected tenant
   React.useEffect(() => {
-    if (!tenantId || !selectedAgentId) {
+    if (!effectiveTenantId || !selectedAgentId) {
       setAgent(null);
       return;
     }
@@ -99,14 +211,35 @@ export default function AgentsAdminPage() {
       setAgentError(null);
       try {
         const res = await fetch(
-          `/api/agents/${encodeURIComponent(selectedAgentId)}?tenantId=${encodeURIComponent(
-            tenantId
-          )}`
+          `/api/agents/${encodeURIComponent(
+            selectedAgentId
+          )}?tenantId=${encodeURIComponent(effectiveTenantId)}`
         );
-        const json: AgentDetailResponse = await res.json();
-        if (!res.ok || !json.ok) {
-          throw new Error(json.error || `HTTP ${res.status}`);
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(
+            text && text.trim().startsWith("<")
+              ? `Server returned HTML error (status ${res.status})`
+              : text || `HTTP ${res.status}`
+          );
         }
+
+        let json: AgentDetailResponse;
+        try {
+          json = (await res.json()) as AgentDetailResponse;
+        } catch (parseErr: any) {
+          throw new Error(
+            `Failed to parse agent detail as JSON: ${
+              parseErr?.message || String(parseErr)
+            }`
+          );
+        }
+
+        if (!json.ok) {
+          throw new Error(json.error || "Agent detail not ok.");
+        }
+
         setAgent(json.agent);
       } catch (e: any) {
         setAgentError(e?.message || "Failed to load agent spec.");
@@ -115,51 +248,92 @@ export default function AgentsAdminPage() {
         setLoadingAgent(false);
       }
     })();
-  }, [tenantId, selectedAgentId]);
+  }, [effectiveTenantId, selectedAgentId]);
 
-  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleAgentSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedAgentId(e.target.value || null);
   };
 
-  const selectedMeta = React.useMemo(() => {
+  const handleTenantSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value || "";
+    setSelectedTenantId(value || null);
+  };
+
+  const selectedTenantMeta = React.useMemo(() => {
+    if (!effectiveTenantId) return null;
+    return tenants.find((t) => t.tenantId === effectiveTenantId) || null;
+  }, [tenants, effectiveTenantId]);
+
+  const selectedAgentMeta = React.useMemo(() => {
     if (!selectedAgentId) return null;
     return agents.find((a) => a.agentId === selectedAgentId) || null;
   }, [agents, selectedAgentId]);
 
   const agentName =
-    agent?.agent?.name || selectedMeta?.name || selectedAgentId || "Unknown agent";
+    agent?.agent?.name ||
+    selectedAgentMeta?.name ||
+    selectedAgentId ||
+    "Unknown agent";
 
   return (
     <div className="mx-auto max-w-6xl p-4 xs:p-6 text-neutral-50">
-      {/* Header (nav bar should already come from your layout) */}
-      <header className="mb-4 xs:mb-6 flex flex-col xs:flex-row items-start xs:items-center justify-between gap-3">
+      {/* Header (nav bar comes from layout) */}
+      <header className="mb-4 xs:mb-6 flex flex-col gap-3 xs:flex-row xs:items-center xs:justify-between">
         <div>
-          <h1 className="text-xl font-semibold flex items-center gap-3">
+          <h1 className="flex items-center gap-3 text-xl font-semibold">
             Agent Specs
-            {selectedMeta?.filename && (
+            {selectedAgentMeta?.filename && (
               <span className="rounded-md border border-neutral-700 bg-neutral-900 px-2 py-0.5 text-xs text-neutral-400">
-                {selectedMeta.filename}
+                {selectedAgentMeta.filename}
               </span>
             )}
           </h1>
           <p className="text-sm text-neutral-500">
-            Tenant:{" "}
-            <span className="font-medium text-neutral-200">{tenantId}</span>
+            Viewing tenant:{" "}
+            <span className="font-medium text-neutral-200">
+              {selectedTenantMeta
+                ? `${selectedTenantMeta.tenantId} (${selectedTenantMeta.name})`
+                : effectiveTenantId || "—"}
+            </span>
           </p>
         </div>
 
-        {/* Agent selector */}
         <div className="flex flex-col items-stretch gap-2 xs:flex-row xs:items-center">
+          {/* Tenant selector (admin) */}
+          {tenantsLoading ? (
+            <span className="text-xs text-neutral-500">Loading tenants…</span>
+          ) : tenantsError ? (
+            <span className="rounded-md border border-red-700 bg-red-900/40 px-3 py-1.5 text-xs text-red-100">
+              {tenantsError}
+            </span>
+          ) : (
+            <select
+              value={effectiveTenantId}
+              onChange={handleTenantSelectChange}
+              className="min-w-[220px] rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-100 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {tenants.length === 0 && (
+                <option value="">No tenants found</option>
+              )}
+              {tenants.map((t) => (
+                <option key={t.tenantId} value={t.tenantId}>
+                  {t.tenantId} — {t.name} [{t.status}]
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Agent selector */}
           {loadingList ? (
             <span className="text-xs text-neutral-500">Loading agents…</span>
           ) : listError ? (
-            <span className="rounded-md border border-red-700 bg-red-900/40 px-3 py-1.5 text-xs text-red-200">
+            <span className="rounded-md border border-red-700 bg-red-900/40 px-3 py-1.5 text-xs text-red-100">
               {listError}
             </span>
           ) : (
             <select
               value={selectedAgentId ?? ""}
-              onChange={handleSelectChange}
+              onChange={handleAgentSelectChange}
               className="min-w-[220px] rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-100 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               {agents.length === 0 && (
@@ -175,13 +349,14 @@ export default function AgentsAdminPage() {
         </div>
       </header>
 
-      {/* Main content */}
+      {/* Errors */}
       {agentError && (
         <div className="mb-4 rounded-lg border border-red-700 bg-red-900/40 p-4 text-sm text-red-100">
           {agentError}
         </div>
       )}
 
+      {/* Main content */}
       {loadingAgent ? (
         <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-4 text-sm text-neutral-300">
           Loading agent spec…
@@ -190,12 +365,12 @@ export default function AgentsAdminPage() {
         <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-4 text-sm text-neutral-400">
           {listError
             ? "Unable to load agents."
-            : "Select an agent to view its spec."}
+            : "Select a tenant and agent to view its spec."}
         </div>
       ) : (
         <div className="space-y-4">
           {/* Top summary row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <SectionCard title="Agent">
               <div className="space-y-1">
                 <div className="text-base font-semibold text-neutral-50">
@@ -215,21 +390,19 @@ export default function AgentsAdminPage() {
                     </span>
                   </div>
                 )}
-                {selectedAgentId && (
-                  <Badge>agentId: {selectedAgentId}</Badge>
-                )}
+                {selectedAgentId && <Badge>agentId: {selectedAgentId}</Badge>}
               </div>
             </SectionCard>
 
             <SectionCard title="Greeting / Start">
-              <div className="text-xs leading-relaxed text-neutral-200 whitespace-pre-line">
+              <div className="whitespace-pre-line text-xs leading-relaxed text-neutral-200">
                 {agent.agent.start || "—"}
               </div>
             </SectionCard>
 
             <SectionCard title="Date Handling">
               <div className="space-y-2 text-xs">
-                <div className="text-neutral-200 whitespace-pre-line">
+                <div className="whitespace-pre-line text-neutral-200">
                   {agent.agent.fetch_current_date || "—"}
                 </div>
                 {agent.policy && "raw" in agent.policy && (
@@ -252,8 +425,8 @@ export default function AgentsAdminPage() {
             </SectionCard>
           </div>
 
-          {/* Style + Policies */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Style + Agent policies */}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <SectionCard title="Style Rules">
               {agent.style_rules && agent.style_rules.length > 0 ? (
                 <ul className="list-disc space-y-1 pl-5 text-xs">
@@ -279,8 +452,8 @@ export default function AgentsAdminPage() {
             </SectionCard>
           </div>
 
-          {/* Dialog Flow + Policy raw */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Dialog flow + Policy */}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <SectionCard title="Dialog Flow">
               {agent.dialog_flow ? (
                 <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded bg-neutral-950/70 p-2 text-[11px] text-neutral-200">
@@ -305,7 +478,7 @@ export default function AgentsAdminPage() {
           </div>
 
           {/* Response templates + examples */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <SectionCard title="Response Templates (JSON)">
               {agent.response_templates &&
               Object.keys(agent.response_templates).length > 0 ? (

@@ -134,25 +134,19 @@ const ConfigSchema = z.object({
   voiceAgent: VoiceAgentSchema,
 });
 
-const PersonaSchema = z.object({
-  tone: z.string().optional(),
-  greeting: z.string().optional(),
-  closing: z.string().optional(),
+
+export const AgentRepoSchema = z.object({
+  provider: z.enum(["github"]),
+  baseRawUrl: z.string().url(), // full raw URL to the MD file
 });
 
-
-const AgentRepoSchema = z.object({
-  provider: z.enum(["github"]),  
-  baseRawUrl: z.string().url(),  // e.g. "https://raw.githubusercontent.com/org/repo/main/agents"
+export const AgentConfigSchema = z.object({
+  agentId: z.string(),          // e.g. "concierge"
+  label: z.string().optional(), // e.g. "Cypress Concierge" (for admin UI)
+  agentRepo: AgentRepoSchema,
 });
 
-const AgentSettingsSchema = z.object({
-  defaultAgentId: z.string().optional(),
-  agentRepo: AgentRepoSchema.optional(),
-  allowedTools: z.array(z.string()).default([]),
-  maxParallelSessions: z.number().default(10),
-  persona: PersonaSchema.optional(),
-});
+export const AgentSettingsSchema = z.array(AgentConfigSchema);
 
 const LimitsSchema = z.object({
   maxAgents: z.number().default(5),
@@ -188,13 +182,17 @@ export const TenantSchema = z.object({
   config: ConfigSchema,
   agentSettings: AgentSettingsSchema.optional(),
   limits: LimitsSchema.optional(),
-  flags: FlagsSchema.optional(),
+  flags: FlagsSchema.optional(),  
 
   widgetKeys: z.array(WidgetKeySchema).default([]),
 
   createdAt: z.date().default(() => new Date()),
   updatedAt: z.date().default(() => new Date()),
 });
+
+export type AgentConfig = z.infer<typeof AgentConfigSchema>;
+
+export type AgentRepo = z.infer<typeof AgentRepoSchema>;
 
 export type Tenant = z.infer<typeof TenantSchema>;
 
