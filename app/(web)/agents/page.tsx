@@ -4,6 +4,8 @@
 import * as React from "react";
 import { useTenant } from "@/context/tenant-context";
 import type { StructuredPrompt } from "@/types/prompt";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 type AgentListItem = {
   agentId: string;
@@ -19,7 +21,10 @@ type AgentListResponse = {
 
 type AgentDetailResponse = {
   ok: boolean;
-  agent: StructuredPrompt;
+  agent: StructuredPrompt & {
+    tools?: any[];
+    tools_errors?: string[];
+  };
   error?: string;
 };
 
@@ -34,6 +39,35 @@ type AdminTenantListResponse = {
   tenants: AdminTenantItem[];
   error?: string;
 };
+
+type AgentWithTools = StructuredPrompt & {
+  tools?: any[];
+  tools_errors?: string[];
+};
+
+
+function JsonPretty({ value }: { value: any }) {
+  return (
+    <SyntaxHighlighter
+      language="json"
+      style={vscDarkPlus}
+      customStyle={{
+        background: "#020617",          // tailwind-ish: bg-slate-950
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 11,
+        maxHeight: "20rem",
+        overflow: "auto",
+        margin: 0,
+      }}
+      wrapLongLines
+    >
+      {JSON.stringify(value, null, 2)}
+    </SyntaxHighlighter>
+  );
+}
+
+
 
 function SectionCard({
   title,
@@ -50,12 +84,27 @@ function SectionCard({
   );
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center rounded-full bg-neutral-800 px-2 py-0.5 text-xs font-medium text-neutral-200">
-      {children}
-    </span>
-  );
+function Badge({
+  children,
+  tone = "default",
+}: {
+  children: React.ReactNode;
+  tone?: "default" | "ok" | "error" | "warn" | "muted";
+}) {
+  const base =
+    "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium";
+  const toneClasses =
+    tone === "ok"
+      ? "bg-emerald-900/60 text-emerald-200 border border-emerald-700"
+      : tone === "error"
+      ? "bg-red-900/60 text-red-100 border border-red-700"
+      : tone === "warn"
+      ? "bg-amber-900/60 text-amber-100 border border-amber-700"
+      : tone === "muted"
+      ? "bg-neutral-800 text-neutral-400 border border-neutral-700"
+      : "bg-neutral-800 text-neutral-200 border border-neutral-700";
+
+  return <span className={`${base} ${toneClasses}`}>{children}</span>;
 }
 
 export default function AgentsAdminPage() {
@@ -81,7 +130,12 @@ export default function AgentsAdminPage() {
   const [selectedAgentId, setSelectedAgentId] = React.useState<string | null>(
     null
   );
-  const [agent, setAgent] = React.useState<StructuredPrompt | null>(null);
+  const [agent, setAgent] = React.useState<AgentWithTools | null>(null);
+
+  // NEW: selected tool name within the current agent
+  const [selectedToolName, setSelectedToolName] = React.useState<string | null>(
+    null
+  );
 
   // Load all tenants (admin view)
   React.useEffect(() => {
@@ -136,73 +190,72 @@ export default function AgentsAdminPage() {
   const effectiveTenantId = selectedTenantId ?? contextTenantId ?? "";
 
   // Fetch list of agents for the selected tenant
-    React.useEffect(() => {
-      if (!effectiveTenantId) {
+  React.useEffect(() => {
+    if (!effectiveTenantId) {
+      setAgents([]);
+      setSelectedAgentId(null);
+      return;
+    }
+
+    (async () => {
+      setLoadingList(true);
+      setListError(null);
+      try {
+        const res = await fetch(
+          `/api/agents?tenantId=${encodeURIComponent(effectiveTenantId)}`
+        );
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(
+            text && text.trim().startsWith("<")
+              ? `Server returned HTML error (status ${res.status})`
+              : text || `HTTP ${res.status}`
+          );
+        }
+
+        let raw: any;
+        try {
+          raw = await res.json();
+        } catch (parseErr: any) {
+          throw new Error(
+            `Failed to parse /api/agents response as JSON: ${
+              parseErr?.message || String(parseErr)
+            }`
+          );
+        }
+
+        const ok = Boolean(raw?.ok);
+        const agentsArray: AgentListItem[] = Array.isArray(raw?.agents)
+          ? raw.agents
+          : [];
+
+        if (!ok) {
+          throw new Error(raw?.error || "Agent list not ok.");
+        }
+
+        setAgents(agentsArray);
+
+        if (agentsArray.length > 0) {
+          setSelectedAgentId(agentsArray[0].agentId);
+        } else {
+          setSelectedAgentId(null);
+        }
+      } catch (e: any) {
+        setListError(e?.message || "Failed to load agents.");
         setAgents([]);
         setSelectedAgentId(null);
-        return;
+      } finally {
+        setLoadingList(false);
       }
-
-      (async () => {
-        setLoadingList(true);
-        setListError(null);
-        try {
-          const res = await fetch(
-            `/api/agents?tenantId=${encodeURIComponent(effectiveTenantId)}`
-          );
-
-          if (!res.ok) {
-            const text = await res.text().catch(() => "");
-            throw new Error(
-              text && text.trim().startsWith("<")
-                ? `Server returned HTML error (status ${res.status})`
-                : text || `HTTP ${res.status}`
-            );
-          }
-
-          let raw: any;
-          try {
-            raw = await res.json();
-          } catch (parseErr: any) {
-            throw new Error(
-              `Failed to parse /api/agents response as JSON: ${
-                parseErr?.message || String(parseErr)
-              }`
-            );
-          }
-
-          // Normalize shape defensively
-          const ok = Boolean(raw?.ok);
-          const agentsArray: AgentListItem[] = Array.isArray(raw?.agents)
-            ? raw.agents
-            : [];
-
-          if (!ok) {
-            throw new Error(raw?.error || "Agent list not ok.");
-          }
-
-          setAgents(agentsArray);
-
-          if (agentsArray.length > 0) {
-            setSelectedAgentId(agentsArray[0].agentId);
-          } else {
-            setSelectedAgentId(null);
-          }
-        } catch (e: any) {
-          setListError(e?.message || "Failed to load agents.");
-          setAgents([]);
-          setSelectedAgentId(null);
-        } finally {
-          setLoadingList(false);
-        }
-      })();
-    }, [effectiveTenantId]);
-
+    })();
+  }, [effectiveTenantId]);
 
   // Fetch selected agent for selected tenant
   React.useEffect(() => {
     if (!effectiveTenantId || !selectedAgentId) {
       setAgent(null);
+      setSelectedToolName(null);
       return;
     }
 
@@ -240,10 +293,24 @@ export default function AgentsAdminPage() {
           throw new Error(json.error || "Agent detail not ok.");
         }
 
-        setAgent(json.agent);
+        const agentData = json.agent as AgentWithTools;
+        setAgent(agentData);
+
+        // Initialize selected tool to first tool, if any
+        if (agentData.tools && agentData.tools.length > 0) {
+          const first = agentData.tools[0];
+          if (first && typeof first.name === "string") {
+            setSelectedToolName(first.name);
+          } else {
+            setSelectedToolName(null);
+          }
+        } else {
+          setSelectedToolName(null);
+        }
       } catch (e: any) {
         setAgentError(e?.message || "Failed to load agent spec.");
         setAgent(null);
+        setSelectedToolName(null);
       } finally {
         setLoadingAgent(false);
       }
@@ -254,7 +321,9 @@ export default function AgentsAdminPage() {
     setSelectedAgentId(e.target.value || null);
   };
 
-  const handleTenantSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleTenantSelectChange = (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) => {
     const value = e.target.value || "";
     setSelectedTenantId(value || null);
   };
@@ -274,6 +343,13 @@ export default function AgentsAdminPage() {
     selectedAgentMeta?.name ||
     selectedAgentId ||
     "Unknown agent";
+
+  // Derive tools + active tool
+  const tools = agent?.tools ?? [];
+  const activeTool =
+    tools.find(
+      (t: any) => t && typeof t.name === "string" && t.name === selectedToolName
+    ) || tools[0];
 
   return (
     <div className="mx-auto max-w-6xl p-4 xs:p-6 text-neutral-50">
@@ -390,7 +466,11 @@ export default function AgentsAdminPage() {
                     </span>
                   </div>
                 )}
-                {selectedAgentId && <Badge>agentId: {selectedAgentId}</Badge>}
+                {selectedAgentId && (
+                  <div className="mt-1">
+                    <Badge tone="muted">agentId: {selectedAgentId}</Badge>
+                  </div>
+                )}
               </div>
             </SectionCard>
 
@@ -437,7 +517,9 @@ export default function AgentsAdminPage() {
                   ))}
                 </ul>
               ) : (
-                <span className="text-xs text-neutral-500">No style rules.</span>
+                <span className="text-xs text-neutral-500">
+                  No style rules.
+                </span>
               )}
             </SectionCard>
 
@@ -447,7 +529,9 @@ export default function AgentsAdminPage() {
                   {(agent.agent_policies as any).raw || "—"}
                 </pre>
               ) : (
-                <span className="text-xs text-neutral-500">No agent policies.</span>
+                <span className="text-xs text-neutral-500">
+                  No agent policies.
+                </span>
               )}
             </SectionCard>
           </div>
@@ -462,7 +546,9 @@ export default function AgentsAdminPage() {
                     : JSON.stringify(agent.dialog_flow, null, 2)}
                 </pre>
               ) : (
-                <span className="text-xs text-neutral-500">No dialog flow.</span>
+                <span className="text-xs text-neutral-500">
+                  No dialog flow.
+                </span>
               )}
             </SectionCard>
 
@@ -472,10 +558,170 @@ export default function AgentsAdminPage() {
                   {(agent.policy as any).raw || "—"}
                 </pre>
               ) : (
-                <span className="text-xs text-neutral-500">No policy section.</span>
+                <span className="text-xs text-neutral-500">
+                  No policy section.
+                </span>
               )}
             </SectionCard>
           </div>
+
+          {/* Tools inspector */}
+          <SectionCard title="Tools">
+            {agent.tools_errors && agent.tools_errors.length > 0 && (
+              <div className="mb-3 rounded-md border border-amber-600 bg-amber-900/30 p-2">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-amber-100">
+                    Tool validation issues
+                  </span>
+                  <Badge tone="warn">
+                    {agent.tools_errors.length} issue
+                    {agent.tools_errors.length > 1 ? "s" : ""}
+                  </Badge>
+                </div>
+                <ul className="space-y-1 text-[11px] text-amber-100">
+                  {agent.tools_errors.map((err, idx) => (
+                    <li key={idx} className="font-mono">
+                      {err}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {tools.length === 0 ? (
+              <div className="text-xs text-neutral-500">
+                No tools defined for this agent.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Summary strip */}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <Badge tone="ok">{tools.length} tool(s)</Badge>
+                  {activeTool?.kind && (
+                    <Badge tone="muted">kind: {activeTool.kind}</Badge>
+                  )}
+                  {typeof activeTool?.enabled === "boolean" && (
+                    <Badge tone={activeTool.enabled ? "ok" : "muted"}>
+                      {activeTool.enabled ? "enabled" : "disabled"}
+                    </Badge>
+                  )}
+                  {typeof activeTool?.priority === "number" && (
+                    <Badge tone="muted">
+                      priority: {activeTool.priority}
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
+                  {/* Tool selector list */}
+                  <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        Tools
+                      </span>
+                    </div>
+                    <select
+                      value={selectedToolName ?? (activeTool?.name ?? "")}
+                      onChange={(e) =>
+                        setSelectedToolName(
+                          e.target.value ? e.target.value : null
+                        )
+                      }
+                      className="mb-2 w-full rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-xs text-neutral-100 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      {tools.map((t: any) => (
+                        <option key={t.name} value={t.name}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="space-y-1 max-h-56 overflow-auto pr-1">
+                      {tools.map((t: any) => {
+                        const isActive =
+                          activeTool && t.name === activeTool.name;
+                        return (
+                          <button
+                            key={t.name}
+                            type="button"
+                            onClick={() => setSelectedToolName(t.name)}
+                            className={`flex w-full flex-col rounded-md border px-2 py-1.5 text-left text-[11px] transition ${
+                              isActive
+                                ? "border-blue-500 bg-blue-950/40 text-neutral-50"
+                                : "border-neutral-800 bg-neutral-900/60 text-neutral-300 hover:border-neutral-600"
+                            }`}
+                          >
+                            <span className="font-mono text-[11px]">
+                              {t.name}
+                            </span>
+                            {t.description && (
+                              <span className="mt-0.5 line-clamp-2 text-[11px] text-neutral-400">
+                                {t.description}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Active tool detail */}
+                  <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-3">
+                    {activeTool ? (
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <div className="font-mono text-sm text-neutral-50">
+                              {activeTool.name}
+                            </div>
+                            {activeTool.description && (
+                              <div className="mt-0.5 text-xs text-neutral-400">
+                                {activeTool.description}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {activeTool.http?.method && (
+                              <Badge tone="muted">
+                                {activeTool.http.method}
+                              </Badge>
+                            )}
+                            {activeTool.version != null && (
+                              <Badge tone="muted">
+                                v{String(activeTool.version)}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        {activeTool.http?.urlTemplate && (
+                          <div className="rounded-md bg-neutral-900/80 px-2 py-1.5 text-[11px] text-neutral-300">
+                            <span className="font-semibold text-neutral-400">
+                              URL:
+                            </span>{" "}
+                            <span className="font-mono">
+                              {activeTool.http.urlTemplate}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="text-[11px] text-neutral-400">
+                          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                            Descriptor JSON
+                          </div>
+                          <JsonPretty value={activeTool} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-neutral-500">
+                        Select a tool to inspect its configuration.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </SectionCard>
 
           {/* Response templates + examples */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -498,7 +744,9 @@ export default function AgentsAdminPage() {
                   {JSON.stringify(agent.examples, null, 2)}
                 </pre>
               ) : (
-                <span className="text-xs text-neutral-500">No examples.</span>
+                <span className="text-xs text-neutral-500">
+                  No examples.
+                </span>
               )}
             </SectionCard>
           </div>

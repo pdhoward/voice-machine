@@ -81,7 +81,11 @@ const CardSnapshotSchema = z.object({
 });
 
 const BillingSchema = z.object({
-  provider: BillingProviderEnum.optional(),
+  provider: z
+    .string()
+    .transform((v) => v.toLowerCase())
+    .pipe(BillingProviderEnum)
+    .optional(),
   customerId: z.string().optional(),
   defaultPaymentMethodId: z.string().optional(),
   currency: z.string().default("USD"),

@@ -1,4 +1,4 @@
-// app/api/admin/tenants/route.ts
+// app/api/agents/tenants/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import getMongoConnection from "@/db/connections";
 
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
       tenants,
     });
   } catch (err: any) {
-    console.error("[/api/admin/tenants] error:", err);
+    console.error("[/api/agents/tenants] error:", err);
     return NextResponse.json<AdminTenantListResponse>(
       { ok: false, tenants: [], error: String(err?.message || err) },
       { status: 500 }

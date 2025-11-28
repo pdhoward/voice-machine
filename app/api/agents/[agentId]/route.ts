@@ -10,12 +10,15 @@ type AgentDetailResponse = {
   error?: string;
 };
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { agentId: string } }
-) {
+function ensureMarkdownUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.toLowerCase().endsWith(".md")) return trimmed;
+  return `${trimmed}.md`;
+}
+
+export async function GET( req: NextRequest, { params }: { params: Promise<{ agentId: string }> }){
   try {
-    const agentId = params.agentId;
+    const {agentId} = await params;
     const tenantId = req.nextUrl.searchParams.get("tenantId");
 
     if (!tenantId) {
@@ -45,12 +48,11 @@ export async function GET(
     // 1) Look for a matching agentId
     let cfg = configs.find((c) => c.agentId === agentId);
 
-    // 2) If not found and agentId is something like "default", fall back to first
+    // 2) Optional fallback: if agentId is "default", use first
     if (!cfg && agentId === "default") {
       cfg = configs[0];
     }
 
-    // 3) If still not found, gracefully error
     if (!cfg) {
       return NextResponse.json<AgentDetailResponse>(
         {
@@ -61,20 +63,22 @@ export async function GET(
       );
     }
 
-    const url = cfg.agentRepo.baseRawUrl; // full MD URL
-    const upstream = await fetch(url);
+    // 👇 Normalize URL to ensure .md is present
+    const finalUrl = ensureMarkdownUrl(cfg.agentRepo.baseRawUrl);
+
+    const upstream = await fetch(finalUrl);
     if (!upstream.ok) {
       return NextResponse.json<AgentDetailResponse>(
         {
           ok: false,
-          error: `Failed to fetch markdown from ${url} (HTTP ${upstream.status})`,
+          error: `Failed to fetch markdown from ${finalUrl} (HTTP ${upstream.status})`,
         },
         { status: 502 }
       );
     }
 
     const markdown = await upstream.text();
-    const structured = parseAgentMarkdown(markdown);
+    const structured = await parseAgentMarkdown(markdown);
 
     return NextResponse.json<AgentDetailResponse>({
       ok: true,

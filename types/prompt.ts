@@ -18,6 +18,11 @@ export type StructuredPrompt = {
   dialog_flow?: any;
   response_templates?: Record<string, string>;
   examples?: any[];
+
+  // 🔽 optional tools (already validated) + any validation errors
+  tools?: any[];          
+  tools_errors?: string[]; 
+
   [k: string]: any;
 };
 
@@ -26,9 +31,6 @@ export type PromptDoc = {
     tenantId: string;
     name?: string;
   };
-  // The whole structured JSON (or even string if you need legacy)
   instructions: StructuredPrompt | string;
-
-  // Allow additional metadata
   [k: string]: any;
 };
