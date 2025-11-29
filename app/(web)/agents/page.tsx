@@ -326,6 +326,10 @@ export default function AgentsAdminPage() {
   ) => {
     const value = e.target.value || "";
     setSelectedTenantId(value || null);
+     // 🔑 Important: reset agent selection + current agent view
+    setSelectedAgentId(null);
+    setAgent(null);
+    setAgentError(null);
   };
 
   const selectedTenantMeta = React.useMemo(() => {

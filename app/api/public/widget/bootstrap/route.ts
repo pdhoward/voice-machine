@@ -116,8 +116,7 @@ export async function GET(req: NextRequest) {
 
     const displayName =
       tenant.identity?.displayName ?? tenant.name ?? tenant.tenantId;
-    const voiceAgent = tenant.config.voiceAgent;
-    const allowedTools = tenant.agentSettings?.allowedTools ?? [];
+    const voiceAgent = tenant.config.voiceAgent;   
     const primaryColor = tenant.flags?.betaFeatures
       ? "#16a34a"
       : "#2563eb";
@@ -149,8 +148,7 @@ export async function GET(req: NextRequest) {
           defaultVoice: voiceAgent.defaultVoice,
           maxConversationMinutes: voiceAgent.maxConversationMinutes,
           fallbackBehavior: voiceAgent.fallbackBehavior,
-        },
-        allowedTools,
+        },        
         widgetSessionToken,
       },
       200
