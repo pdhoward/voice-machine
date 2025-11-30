@@ -25,6 +25,21 @@ function inferFilenameFromUrl(url: string): string | undefined {
   }
 }
 
+// minimal config-level safety checks
+function validateAgentConfig(cfg: AgentConfig): string[] {
+  const errors: string[] = [];
+
+  if (!cfg.agentId || typeof cfg.agentId !== "string") {
+    errors.push("agentId is required and must be a string.");
+  }
+
+  if (!cfg.agentRepo || typeof cfg.agentRepo.baseRawUrl !== "string") {
+    errors.push("agentRepo.baseRawUrl is required and must be a string.");
+  }
+
+  return errors;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const tenantId = req.nextUrl.searchParams.get("tenantId");
@@ -44,12 +59,27 @@ export async function GET(req: NextRequest) {
     }
 
     const configs: AgentConfig[] = tenant.agentSettings ?? [];
+    const agents: AgentListItem[] = [];
 
-    const agents: AgentListItem[] = configs.map((cfg) => ({
-      agentId: cfg.agentId,
-      name: cfg.label || cfg.agentId,
-      filename: inferFilenameFromUrl(cfg.agentRepo.baseRawUrl),
-    }));
+    for (const cfg of configs) {
+      const errs = validateAgentConfig(cfg);
+      if (errs.length > 0) {
+        // log but don't break the list endpoint;
+        // serious issues will be caught in the detail endpoint.
+        console.warn(
+          `[/api/agents] Invalid AgentConfig for agentId="${cfg.agentId}":`,
+          errs
+        );
+      }
+
+      agents.push({
+        agentId: cfg.agentId,
+        name: cfg.label || cfg.agentId,
+        filename: cfg.agentRepo?.baseRawUrl
+          ? inferFilenameFromUrl(cfg.agentRepo.baseRawUrl)
+          : undefined,
+      });
+    }
 
     return NextResponse.json<AgentListResponse>({
       ok: true,

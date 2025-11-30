@@ -8,6 +8,7 @@ type AgentDetailResponse = {
   ok: boolean;
   agent?: any;
   error?: string;
+  spec_errors?: string[];
 };
 
 function ensureMarkdownUrl(raw: string): string {
@@ -16,9 +17,12 @@ function ensureMarkdownUrl(raw: string): string {
   return `${trimmed}.md`;
 }
 
-export async function GET( req: NextRequest, { params }: { params: Promise<{ agentId: string }> }){
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ agentId: string }> }
+) {
   try {
-    const {agentId} = await params;
+    const { agentId } = await params;
     const tenantId = req.nextUrl.searchParams.get("tenantId");
 
     if (!tenantId) {
@@ -63,7 +67,7 @@ export async function GET( req: NextRequest, { params }: { params: Promise<{ age
       );
     }
 
-    // 👇 Normalize URL to ensure .md is present
+    // Normalize URL to ensure .md is present
     const finalUrl = ensureMarkdownUrl(cfg.agentRepo.baseRawUrl);
 
     const upstream = await fetch(finalUrl);
@@ -78,7 +82,37 @@ export async function GET( req: NextRequest, { params }: { params: Promise<{ age
     }
 
     const markdown = await upstream.text();
+
+    // 🔍 parse + validate structure
     const structured = await parseAgentMarkdown(markdown);
+
+    // 🔁 cross-check spec vs URL/query
+    const specErrors: string[] = [];
+    const specAgent = structured.agent || {};
+
+    if (specAgent.tenantId !== tenantId) {
+      specErrors.push(
+        `Spec agent.tenantId (${specAgent.tenantId}) does not match requested tenantId (${tenantId}).`
+      );
+    }
+
+    if (specAgent.agentId !== agentId && agentId !== "default") {
+      specErrors.push(
+        `Spec agent.agentId (${specAgent.agentId}) does not match requested agentId (${agentId}).`
+      );
+    }
+
+    if (specErrors.length > 0) {
+      return NextResponse.json<AgentDetailResponse>(
+        {
+          ok: false,
+          agent: structured,
+          error: "Agent spec failed tenant/agentId consistency checks.",
+          spec_errors: specErrors,
+        },
+        { status: 422 }
+      );
+    }
 
     return NextResponse.json<AgentDetailResponse>({
       ok: true,

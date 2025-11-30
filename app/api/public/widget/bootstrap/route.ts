@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
 
     const displayName =
       tenant.identity?.displayName ?? tenant.name ?? tenant.tenantId;
-    const voiceAgent = tenant.config.voiceAgent;   
+    //const voiceAgent = tenant.config.voiceAgent;   
     const primaryColor = tenant.flags?.betaFeatures
       ? "#16a34a"
       : "#2563eb";
@@ -142,13 +142,13 @@ export async function GET(req: NextRequest) {
             ? `https://logo.clearbit.com/${tenant.identity.domain}`
             : undefined,
         },
-        voiceAgent: {
-          agentId: voiceAgent.agentId,
-          defaultLanguage: voiceAgent.defaultLanguage,
-          defaultVoice: voiceAgent.defaultVoice,
-          maxConversationMinutes: voiceAgent.maxConversationMinutes,
-          fallbackBehavior: voiceAgent.fallbackBehavior,
-        },        
+        // voiceAgent: {
+        //   agentId: voiceAgent.agentId,
+        //   defaultLanguage: voiceAgent.defaultLanguage,
+        //   defaultVoice: voiceAgent.defaultVoice,
+        //   maxConversationMinutes: voiceAgent.maxConversationMinutes,
+        //   fallbackBehavior: voiceAgent.fallbackBehavior,
+        // },        
         widgetSessionToken,
       },
       200

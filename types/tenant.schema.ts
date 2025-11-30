@@ -98,46 +98,6 @@ const BillingSchema = z.object({
   nextBillingDate: z.date().optional(),
 });
 
-const DatastoreAuthSchema = z.object({
-  userId: z.string().optional(),
-  password: z.string().optional(), // encrypted in your app
-});
-
-const DatastoreSchema = z.object({
-  type: DatastoreTypeEnum.default("mongo"),
-  connectionUri: z.string().optional(),
-  databaseName: z.string().optional(),
-  collectionName: z.string().optional(),
-  searchDefaults: z
-    .object({
-      maxResults: z.number().default(20),
-      minScore: z.number().default(0.5),
-    })
-    .optional(),
-  auth: DatastoreAuthSchema.optional(),
-});
-
-const APISchema = z.object({
-  name: z.string(),
-  description: z.string().optional(),
-  uri: z.string(),
-  key: z.string(), // encrypted in your app
-});
-
-const VoiceAgentSchema = z.object({
-  agentId: z.string().optional(), // ObjectId as string
-  defaultLanguage: z.string().default("en-US"),
-  defaultVoice: z.string().optional(),
-  maxConversationMinutes: z.number().default(30),
-  fallbackBehavior: FallbackBehaviorEnum.default("apologize_and_end"),
-});
-
-const ConfigSchema = z.object({
-  datastores: z.array(DatastoreSchema).default([]),
-  APIs: z.array(APISchema).default([]),
-  voiceAgent: VoiceAgentSchema,
-});
-
 
 export const AgentRepoSchema = z.object({
   provider: z.enum(["github"]),
@@ -182,8 +142,7 @@ export const TenantSchema = z.object({
 
   identity: IdentitySchema.optional(),
   contacts: ContactsSchema.optional(),
-  billing: BillingSchema.optional(),
-  config: ConfigSchema,
+  billing: BillingSchema.optional(), 
   agentSettings: AgentSettingsSchema.optional(),
   limits: LimitsSchema.optional(),
   flags: FlagsSchema.optional(),  

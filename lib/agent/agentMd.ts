@@ -1,7 +1,10 @@
 // lib/agent/agentMd.ts
 import yaml from "js-yaml";
 import type { StructuredPrompt } from "@/types/prompt";
-import { ToolRegistryArraySchema, type ToolRegistryItem } from "@/types/toolRegistry.schema"; 
+import {
+  ToolRegistryArraySchema,
+  type ToolRegistryItem,
+} from "@/types/toolRegistry.schema";
 
 type AgentMdFrontmatter = {
   agent: {
@@ -67,9 +70,10 @@ function extractBulletList(md: string | undefined): string[] {
   return out;
 }
 
+// 🔧 more tolerant: supports ```json and ``` json (any whitespace before/after)
 function extractFirstJsonBlock(md: string | undefined): any | null {
   if (!md) return null;
-  const match = /```json\s*([\s\S]+?)```/i.exec(md);
+  const match = /```[ \t]*json[ \t]*\n([\s\S]+?)```/i.exec(md);
   if (!match) return null;
   try {
     return JSON.parse(match[1]);
@@ -78,12 +82,58 @@ function extractFirstJsonBlock(md: string | undefined): any | null {
   }
 }
 
+// ✅ validation for mandatory frontmatter fields
+function validateAgentFrontmatter(agent: AgentMdFrontmatter["agent"]): string[] {
+  const errors: string[] = [];
+
+  if (!agent.tenantId || typeof agent.tenantId !== "string") {
+    errors.push("agent.tenantId is required and must be a string.");
+  }
+
+  if (!agent.agentId || typeof agent.agentId !== "string") {
+    errors.push("agent.agentId is required and must be a string.");
+  }
+
+  if (!agent.name || typeof agent.name !== "string") {
+    errors.push("agent.name is required and must be a string.");
+  }
+
+  if (!agent.tone || typeof agent.tone !== "string") {
+    errors.push("agent.tone is required and must be a string.");
+  }
+
+  if (!agent.start || typeof agent.start !== "string") {
+    errors.push("agent.start is required and must be a string.");
+  }
+
+  if (
+    !agent.fetch_current_date ||
+    typeof agent.fetch_current_date !== "string"
+  ) {
+    errors.push(
+      "agent.fetch_current_date is required and must be a string describing date behavior."
+    );
+  }
+
+  return errors;
+}
+
 export async function parseAgentMarkdown(
   markdown: string
 ): Promise<StructuredPrompt> {
   const { frontmatter, body } = splitFrontmatter(markdown);
-  if (!frontmatter?.agent?.tenantId) {
-    throw new Error("agent.tenantId is required in frontmatter");
+
+  if (!frontmatter || !frontmatter.agent) {
+    throw new Error("Frontmatter with an 'agent' section is required.");
+  }
+
+  // 🔍 run frontmatter validation here
+  const fmErrors = validateAgentFrontmatter(frontmatter.agent);
+  if (fmErrors.length > 0) {
+    // You can make this message fancier if you want
+    throw new Error(
+      `Agent frontmatter is invalid:\n- ${fmErrors.join("\n- ")}`
+    );
   }
 
   const sections = splitSections(body);
@@ -95,7 +145,7 @@ export async function parseAgentMarkdown(
     extractFirstJsonBlock(sections["response templates"]) || {};
   const examples = extractFirstJsonBlock(sections["examples"]) || [];
 
-  // 🔽 NEW: parse Tools section
+  // 🔽 Tools section
   const toolsSection = sections["tools"];
   let tools: ToolRegistryItem[] | undefined = undefined;
   const toolsErrors: string[] = [];
@@ -112,9 +162,7 @@ export async function parseAgentMarkdown(
         tools = parsed;
       } catch (err: any) {
         toolsErrors.push(
-          `Tool JSON failed validation: ${
-            err?.message || String(err)
-          }`
+          `Tool JSON failed validation: ${err?.message || String(err)}`
         );
       }
     }
@@ -140,11 +188,11 @@ export async function parseAgentMarkdown(
   const structured: StructuredPrompt = {
     agent: {
       tenantId: frontmatter.agent.tenantId,
-      agentId: frontmatter.agent.agentId,
-      name: frontmatter.agent.name,
-      tone: frontmatter.agent.tone,
-      start: frontmatter.agent.start,
-      fetch_current_date: frontmatter.agent.fetch_current_date,
+      agentId: frontmatter.agent.agentId!,
+      name: frontmatter.agent.name!,
+      tone: frontmatter.agent.tone!,
+      start: frontmatter.agent.start!,
+      fetch_current_date: frontmatter.agent.fetch_current_date!,
       ...extraAgentKeys,
     },
     style_rules: styleRules,

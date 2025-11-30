@@ -1,4 +1,3 @@
-// app/(web)/agents/page.tsx
 "use client";
 
 import * as React from "react";
@@ -45,6 +44,33 @@ type AgentWithTools = StructuredPrompt & {
   tools_errors?: string[];
 };
 
+// ---------- Small helpers (DRY) ----------
+
+async function fetchJsonOrThrow<T>(url: string, parseLabel: string): Promise<T> {
+  const res = await fetch(url);
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      text && text.trim().startsWith("<")
+        ? `Server returned HTML error (status ${res.status})`
+        : text || `HTTP ${res.status}`
+    );
+  }
+
+  let json: any;
+  try {
+    json = await res.json();
+  } catch (parseErr: any) {
+    throw new Error(
+      `Failed to parse ${parseLabel} response as JSON: ${
+        parseErr?.message || String(parseErr)
+      }`
+    );
+  }
+
+  return json as T;
+}
 
 function JsonPretty({ value }: { value: any }) {
   return (
@@ -52,7 +78,7 @@ function JsonPretty({ value }: { value: any }) {
       language="json"
       style={vscDarkPlus}
       customStyle={{
-        background: "#020617",          // tailwind-ish: bg-slate-950
+        background: "#020617",
         borderRadius: 8,
         padding: 12,
         fontSize: 11,
@@ -66,8 +92,6 @@ function JsonPretty({ value }: { value: any }) {
     </SyntaxHighlighter>
   );
 }
-
-
 
 function SectionCard({
   title,
@@ -107,6 +131,18 @@ function Badge({
   return <span className={`${base} ${toneClasses}`}>{children}</span>;
 }
 
+// Safely parse JSON-ish strings (if backend ever sends them as string)
+function tryParseJson(value: unknown): unknown {
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  }
+  return value;
+}
+
 export default function AgentsAdminPage() {
   const { tenantId: contextTenantId } = useTenant();
 
@@ -132,10 +168,9 @@ export default function AgentsAdminPage() {
   );
   const [agent, setAgent] = React.useState<AgentWithTools | null>(null);
 
-  // NEW: selected tool name within the current agent
-  const [selectedToolName, setSelectedToolName] = React.useState<string | null>(
-    null
-  );
+  // selected tool name within the current agent
+  const [selectedToolName, setSelectedToolName] =
+    React.useState<string | null>(null);
 
   // Load all tenants (admin view)
   React.useEffect(() => {
@@ -143,29 +178,15 @@ export default function AgentsAdminPage() {
       setTenantsLoading(true);
       setTenantsError(null);
       try {
-        const res = await fetch("/api/agents/tenants");
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(
-            text && text.trim().startsWith("<")
-              ? `Server returned HTML error (status ${res.status})`
-              : text || `HTTP ${res.status}`
-          );
-        }
-        let json: AdminTenantListResponse;
-        try {
-          json = (await res.json()) as AdminTenantListResponse;
-        } catch (parseErr: any) {
-          throw new Error(
-            `Failed to parse tenants response as JSON: ${
-              parseErr?.message || String(parseErr)
-            }`
-          );
-        }
+        const json = await fetchJsonOrThrow<AdminTenantListResponse>(
+          "/api/agents/tenants",
+          "tenants"
+        );
         if (!json.ok) {
           throw new Error(json.error || "Tenants response not ok.");
         }
         setTenants(json.tenants || []);
+
         // Default selection: context tenantId if present in list; else first
         const contextInList = json.tenants.find(
           (t) => t.tenantId === contextTenantId
@@ -201,29 +222,10 @@ export default function AgentsAdminPage() {
       setLoadingList(true);
       setListError(null);
       try {
-        const res = await fetch(
-          `/api/agents?tenantId=${encodeURIComponent(effectiveTenantId)}`
+        const raw = await fetchJsonOrThrow<AgentListResponse>(
+          `/api/agents?tenantId=${encodeURIComponent(effectiveTenantId)}`,
+          "/api/agents"
         );
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(
-            text && text.trim().startsWith("<")
-              ? `Server returned HTML error (status ${res.status})`
-              : text || `HTTP ${res.status}`
-          );
-        }
-
-        let raw: any;
-        try {
-          raw = await res.json();
-        } catch (parseErr: any) {
-          throw new Error(
-            `Failed to parse /api/agents response as JSON: ${
-              parseErr?.message || String(parseErr)
-            }`
-          );
-        }
 
         const ok = Boolean(raw?.ok);
         const agentsArray: AgentListItem[] = Array.isArray(raw?.agents)
@@ -263,31 +265,12 @@ export default function AgentsAdminPage() {
       setLoadingAgent(true);
       setAgentError(null);
       try {
-        const res = await fetch(
+        const json = await fetchJsonOrThrow<AgentDetailResponse>(
           `/api/agents/${encodeURIComponent(
             selectedAgentId
-          )}?tenantId=${encodeURIComponent(effectiveTenantId)}`
+          )}?tenantId=${encodeURIComponent(effectiveTenantId)}`,
+          "agent detail"
         );
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(
-            text && text.trim().startsWith("<")
-              ? `Server returned HTML error (status ${res.status})`
-              : text || `HTTP ${res.status}`
-          );
-        }
-
-        let json: AgentDetailResponse;
-        try {
-          json = (await res.json()) as AgentDetailResponse;
-        } catch (parseErr: any) {
-          throw new Error(
-            `Failed to parse agent detail as JSON: ${
-              parseErr?.message || String(parseErr)
-            }`
-          );
-        }
 
         if (!json.ok) {
           throw new Error(json.error || "Agent detail not ok.");
@@ -326,7 +309,7 @@ export default function AgentsAdminPage() {
   ) => {
     const value = e.target.value || "";
     setSelectedTenantId(value || null);
-     // 🔑 Important: reset agent selection + current agent view
+    // reset agent selection + current agent view
     setSelectedAgentId(null);
     setAgent(null);
     setAgentError(null);
@@ -354,6 +337,39 @@ export default function AgentsAdminPage() {
     tools.find(
       (t: any) => t && typeof t.name === "string" && t.name === selectedToolName
     ) || tools[0];
+
+  // --------- NEW: normalize response_templates & examples ---------
+
+  const responseTemplates = React.useMemo(() => {
+    if (!agent) return null;
+    const fromTop =
+      (agent as any).response_templates ??
+      (agent as any).responseTemplates ??
+      null;
+    const fromAgentSection =
+      (agent as any).agent?.response_templates ??
+      (agent as any).agent?.responseTemplates ??
+      null;
+    return tryParseJson(fromTop ?? fromAgentSection);
+  }, [agent]);
+
+  const examplesData = React.useMemo(() => {
+    if (!agent) return null;
+    const fromTop = (agent as any).examples ?? null;
+    const fromAgentSection =
+      (agent as any).agent?.examples ??
+      (agent as any).agent?.example_flows ??
+      null;
+    return tryParseJson(fromTop ?? fromAgentSection);
+  }, [agent]);
+
+  const hasResponseTemplates =
+    responseTemplates !== null && responseTemplates !== undefined;
+
+  const hasExamples =
+    Array.isArray(examplesData) && examplesData.length > 0
+      ? true
+      : !!examplesData;
 
   return (
     <div className="mx-auto max-w-6xl p-4 xs:p-6 text-neutral-50">
@@ -730,10 +746,9 @@ export default function AgentsAdminPage() {
           {/* Response templates + examples */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <SectionCard title="Response Templates (JSON)">
-              {agent.response_templates &&
-              Object.keys(agent.response_templates).length > 0 ? (
+              {hasResponseTemplates ? (
                 <pre className="max-h-64 overflow-auto rounded bg-neutral-950/70 p-2 text-[11px] text-neutral-200">
-                  {JSON.stringify(agent.response_templates, null, 2)}
+                  {JSON.stringify(responseTemplates, null, 2)}
                 </pre>
               ) : (
                 <span className="text-xs text-neutral-500">
@@ -743,14 +758,12 @@ export default function AgentsAdminPage() {
             </SectionCard>
 
             <SectionCard title="Examples (JSON)">
-              {agent.examples && agent.examples.length > 0 ? (
+              {hasExamples ? (
                 <pre className="max-h-64 overflow-auto rounded bg-neutral-950/70 p-2 text-[11px] text-neutral-200">
-                  {JSON.stringify(agent.examples, null, 2)}
+                  {JSON.stringify(examplesData, null, 2)}
                 </pre>
               ) : (
-                <span className="text-xs text-neutral-500">
-                  No examples.
-                </span>
+                <span className="text-xs text-neutral-500">No examples.</span>
               )}
             </SectionCard>
           </div>

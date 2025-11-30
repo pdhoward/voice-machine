@@ -38,8 +38,9 @@ export function signWidgetSessionToken(params: {
     sub: tenant.tenantId,
     typ: "widget",
     key: widgetKeyEntry.key,
-    origin: origin || undefined,
-    allowedTools: tenant.agentSettings?.allowedTools ?? [],
+    origin: origin || undefined, 
+    // NOTE > For now, no tenant-level tool restrictions; MD-based tools instead
+    allowedTools: [],  
   };
 
   const options: SignOptions = {};
