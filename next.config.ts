@@ -4,19 +4,20 @@ import { withBotId } from "botid/next/config";
 const nextConfig: NextConfig = {
    eslint: {
     // ✅ Don't fail production builds on ESLint errors
-    ignoreDuringBuilds: true,
+      ignoreDuringBuilds: true,
     },
+   logging: {
+      incomingRequests: process.env.NODE_ENV === "production" ? false : true,
+   },
    compiler: {
       removeConsole: process.env.NODE_ENV === "production"
     },
-    reactStrictMode: true,
-     images: {
-      // ✅ New style: allowlist external images with protocol/host/path
+  reactStrictMode: true,
+     images: {     
       remotePatterns: [
         {
           protocol: "https",
-          hostname: "res.cloudinary.com",
-          // tighten to your account if you want (you used /stratmachine/... in URLs)
+          hostname: "res.cloudinary.com",          
           pathname: "/stratmachine/**",
         },
         {
@@ -29,15 +30,18 @@ const nextConfig: NextConfig = {
           hostname: "cypressbooking.vercel.app",
           pathname: "/**",
         },
+        {
+          protocol: "https",
+          hostname: "product-booking.vercel.app",
+          pathname: "/**",
+        },
       ],    
   },
-  allowedDevOrigins: [
-    // marketing site dev origin:
-    "http://localhost:3000",
-    // ngrok tunnel (dev widget host)
-    "https://chaotic.ngrok.io",
-    "local-origin.dev", 
-    "*.local-origin.dev"
+   allowedDevOrigins: [
+    "localhost:3000",       
+    "chaotic.ngrok.io",    
+    "local-origin.dev",
+    "*.local-origin.dev",
   ],
 };
 
