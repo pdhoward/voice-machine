@@ -191,7 +191,7 @@ export async function withRateLimit(
           dollars: usageLimit.dollars,
           limits: usageLimit.limits,
         },
-        { status: 429 }
+        { status: 427 }
       );
 
       res.cookies.set("tenant_session", "", {

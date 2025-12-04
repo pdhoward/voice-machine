@@ -1,0 +1,209 @@
+{
+    "component_name": "room",
+    "props": {
+        "items": [
+            {
+                "_id": "68adc6cee5bbfe073e1dcc08",
+                "name": "Ridge Villa",
+                "unitNumber": "1",
+                "type": "villa",
+                "description": "This Villa sits in the heart of our natural surrounds, providing a magnificent view of our rushing stream of water",
+                "rate": 685,
+                "currency": "USD",
+                "config": {
+                    "squareFeet": 825,
+                    "view": "stream",
+                    "beds": [
+                        {
+                            "size": "king",
+                            "count": 1
+                        }
+                    ],
+                    "bedrooms": 1,
+                    "bathrooms": 1,
+                    "shower": true,
+                    "bathtub": true,
+                    "hotTub": true,
+                    "sauna": true,
+                    "ada": false
+                },
+                "calendars": [
+                    {
+                        "calendarId": "68a7795d4354ebaa8a52c34d",
+                        "name": "Cypress Resorts",
+                        "version": 1,
+                        "effectiveDate": "2025-08-26"
+                    }
+                ],
+                "active": true,
+                "createdAt": "2025-08-26T14:38:06.563Z",
+                "updatedAt": "2025-09-25T17:35:45.544Z",
+                "__v": 0,
+                "unit_id": "unit-villa-1",
+                "tenantId": "cypress-resorts",
+                "slug": "ridge-villa",
+                "occupancy": {
+                    "sleeps": 2,
+                    "maxAdults": 2,
+                    "maxChildren": 0,
+                    "extraBedAvailable": false,
+                    "cribAvailable": false
+                },
+                "amenities": {
+                    "raw": [
+                        "hot_tub",
+                        "sauna",
+                        "outdoor_shower",
+                        "chef_kitchen",
+                        "fire_pit",
+                        "wifi"
+                    ],
+                    "wellness": [
+                        "hot tub",
+                        "sauna"
+                    ],
+                    "bath": [
+                        "outdoor shower",
+                        "bathtub",
+                        "shower"
+                    ],
+                    "kitchenette": [
+                        "chef-grade kitchen"
+                    ],
+                    "outdoor": [
+                        "fire pit"
+                    ],
+                    "tech": [
+                        "wifi"
+                    ],
+                    "view": [
+                        "stream"
+                    ],
+                    "room": [],
+                    "services": [],
+                    "accessibility": []
+                },
+                "location": {
+                    "displayAddress": "",
+                    "unitPositionNotes": "Ridge line, near stream",
+                    "floorLevel": null,
+                    "city": "Jasper",
+                    "state": "GA",
+                    "coordinates": {
+                        "lat": 34.467,
+                        "lng": -84.429
+                    },
+                    "wayfinding": []
+                },
+                "images": [
+                    {
+                        "url": "https://res.cloudinary.com/stratmachine/video/upload/v1751653643/cypress/unit1_gurm14.mp4",
+                        "role": "gallery",
+                        "alt": "Ridge Villa living room",
+                        "caption": "",
+                        "order": 1
+                    },
+                    {
+                        "url": "https://res.cloudinary.com/stratmachine/image/upload/v1759169632/cypress/hottub_exhrcb.jpg",
+                        "role": "gallery",
+                        "alt": "Private hot tub",
+                        "caption": "",
+                        "order": 2
+                    },
+                    {
+                        "url": "https://res.cloudinary.com/stratmachine/image/upload/v1759169650/cypress/kitchen_pjizbz.jpg",
+                        "role": "gallery",
+                        "alt": "Modern kitchen",
+                        "caption": "",
+                        "order": 3
+                    }
+                ],
+                "policies": {
+                    "checkInTime": "15:00",
+                    "checkOutTime": "11:00",
+                    "smoking": "prohibited",
+                    "pets": {
+                        "allowed": false,
+                        "notes": ""
+                    },
+                    "cancellation": {
+                        "windowHours": null,
+                        "penaltyType": null,
+                        "penaltyValue": null
+                    },
+                    "securityDeposit": {
+                        "required": false,
+                        "amount": null,
+                        "currency": "USD"
+                    },
+                    "minStayNights": null
+                },
+                "tech": {
+                    "wifi": {
+                        "available": true,
+                        "bandwidthMbps": null
+                    },
+                    "tv": {
+                        "available": true,
+                        "sizeInches": null,
+                        "channels": [],
+                        "casting": true
+                    },
+                    "audio": {
+                        "bluetoothSpeaker": false
+                    },
+                    "smartHome": {
+                        "voiceAssistant": false,
+                        "smartThermostat": false
+                    }
+                },
+                "safety": {
+                    "smokeDetector": true,
+                    "carbonMonoxideDetector": true,
+                    "fireExtinguisher": true,
+                    "firstAidKit": true,
+                    "emergencyInfo": ""
+                },
+                "housekeeping": {
+                    "cleaningFrequency": "daily",
+                    "linensChange": "everyOtherDay",
+                    "towelsChange": "daily",
+                    "turnDownService": false
+                },
+                "feesAndTaxes": {
+                    "resortFee": {
+                        "amount": null,
+                        "currency": "USD",
+                        "per": "night"
+                    },
+                    "cleaningFee": {
+                        "amount": null,
+                        "currency": "USD",
+                        "per": "stay"
+                    },
+                    "taxes": []
+                },
+                "ratePlans": [],
+                "labels": [
+                    "villa",
+                    "luxury",
+                    "stream-view"
+                ],
+                "tags": [],
+                "seo": {
+                    "slug": "ridge-villa",
+                    "title": "Ridge Villa | Cypress Resorts",
+                    "metaDescription": "825 sq ft luxury villa with stream views, private hot tub, sauna, and chef-grade kitchen."
+                },
+                "metadata": {
+                    "schemaVersion": "1.0.0",
+                    "source": "master+merge",
+                    "sourceNotes": {}
+                }
+            }
+     
+ 
+        ],
+        "dates": {}
+    }
+}

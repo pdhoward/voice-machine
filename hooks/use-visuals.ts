@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import type { VisualStageHandle } from "@/components/visual-stage-host"; 
+import {useRef} from 'react'
 
 /* =========================================================================
    Visuals Hook — hardened
@@ -198,10 +199,19 @@ type Props = { stageRef: React.RefObject<VisualStageHandle | null> };
 
 export const useVisualFunctions = ({ stageRef }: Props) => {
 
+  const callCountRef = useRef(0);
+
   const visualFunction = async (args: any) => {
+    
     console.groupCollapsed("[show_component] incoming args");
     console.log(args);
     console.groupEnd();
+
+    //DEBUG Add a counter to distinguish calls
+    callCountRef.current++;
+    console.log(
+      `[show_component] CALL ${callCountRef.current} with incoming arg: ${args}`
+    );
 
     // 1) Parse + normalize stringified fields
     const raw = {
@@ -287,6 +297,10 @@ export const useVisualFunctions = ({ stageRef }: Props) => {
 
     const payload = parsed.data as any;
 
+     console.log(
+    `[show_component] CALL ${callCountRef.current} NEAR LOGIC END with component: ${payload.component_name}`
+      );
+
     // 4) Mirror top-level → props for components that only read props
     payload.props = { ...(payload.props || {}) };
     if (payload.media && !payload.props.media) payload.props.media = payload.media;
@@ -312,6 +326,7 @@ export const useVisualFunctions = ({ stageRef }: Props) => {
     }
 
     target.show(payload);
+    
     return { ok: true, routed_component: payload.component_name };
     
   };
