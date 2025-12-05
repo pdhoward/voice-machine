@@ -15,9 +15,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { X, ExternalLink } from "lucide-react";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import {
+  VISUALS_WITH_OWN_CHROME,
+  type VisualName,
+} from "@/types/manifest";
 
 export type VisualPayload = {
-  component_name: string;
+  component_name: VisualName;
   title?: string;
   description?: string;
   size?: "sm" | "md" | "lg" | "xl";
@@ -43,15 +47,7 @@ const sizeToMaxWidth: Record<NonNullable<VisualPayload["size"]>, string> = {
 };
 
 // Components that render their own chrome (header/close etc.)
-const HAS_OWN_CHROME = new Set([
-  "quote_summary",
-  "catalog_results",
-  "reservation_checkout", // ← unified checkout visual
-  "room",
-  "media_gallery",
-  "image_viewer",
-  "video",
-]);
+const HAS_OWN_CHROME = new Set<VisualName>(VISUALS_WITH_OWN_CHROME);
 
 function FallbackSkeleton() {
   return (

@@ -194,7 +194,7 @@ const App: React.FC = () => {
               promptsJson as StructuredPrompt | StructuredPrompt[]
             );
             const exposedToolDefs: ToolDef[] = [
-              ...coreTools,            
+              ...coreTools.filter((t) => t.name !== "show_component"), // hide this tool from model           
               ...httpToolDefs,
             ];
             const todayIso = new Date().toISOString();

@@ -1,5 +1,9 @@
 
 import { z } from "zod";
+import {
+  VISUAL_COMPONENTS,
+  VISUAL_INTENTS,
+} from "@/types/manifest";
 
 export const PaymentsCreateIntentInput = z.object({
   tenant_id: z.string(),
@@ -44,19 +48,11 @@ export const coreTools: ToolDef[] = [
     properties: {
       component_name: {
         type: "string",
-        enum: [          
-          "quote_summary",
-          "catalog_results",
-          "reservation_checkout",
-          "room",
-          "video",
-          "image_viewer",
-          "media_gallery"
-        ]
+        enum: VISUAL_COMPONENTS,
       },
       intent: {
         type: "string",
-        enum: [,"quote","reservation_checkout","results","room","media","video","image"]
+        enum: VISUAL_INTENTS,
       },
       title: { type: "string" },
       description: { type: "string" },
