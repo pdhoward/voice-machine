@@ -27,9 +27,7 @@ export async function POST(req: NextRequest) {
   const endpointSecret = process.env.NODE_ENV === 'development' 
     ? process.env.STRIPE_VOX_WH_SECRET_DEV!
     : process.env.STRIPE_VOX_WH_SECRET_PROD!;
-
-  console.log(`-------------debug webhook---------`);
-  console.log(endpointSecret);
+ 
 
   let event: Stripe.Event;
   try {
@@ -42,10 +40,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ 
       error: `Webhook signature verification failed: ${err.message}` 
     }, { status: 400 });
-  }
-
-  console.log(`-------------debug webhook---------`);
-  console.log(endpointSecret, event.type);
+  }  
 
   try {
     switch (event.type) {
