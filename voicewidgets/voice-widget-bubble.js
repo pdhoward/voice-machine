@@ -87,12 +87,6 @@
     var token = options.token;
     var tenantId = options.tenantId;
 
-    // Match the cookie button's neutral stone palette - cypress
-    var orbBorderColor = "#d6d3d1"; // approx Tailwind stone-300
-    var orbBaseBgColor = "#d6d3d1"; // stone-300
-    var orbHoverBgColor = "#a8a29e"; // stone-400
-
-
     injectPulseStyles();
 
     // ─────────────────────────────────────────────
@@ -118,8 +112,8 @@
     btn.style.width = "52px";
     btn.style.height = "52px";
     btn.style.borderRadius = "9999px";
-    btn.style.border = "2px solid " + orbBorderColor;
-    btn.style.background = orbBaseBgColor;
+    btn.style.border = "2px solid " + primaryColor;
+    btn.style.background = "#ffffff";
     btn.style.display = "inline-flex";
     btn.style.alignItems = "center";
     btn.style.justifyContent = "center";
@@ -133,18 +127,14 @@
 
     btn.addEventListener("mouseenter", function () {
       btn.style.transform = "translateY(-2px) scale(1.05)";
-      btn.style.background = orbHoverBgColor;
       btn.style.boxShadow =
         "0 18px 28px -8px rgba(15,23,42,0.5), 0 8px 14px -6px rgba(15,23,42,0.4)";
     });
-
     btn.addEventListener("mouseleave", function () {
       btn.style.transform = "translateY(0) scale(1)";
-      btn.style.background = orbBaseBgColor;
       btn.style.boxShadow =
         "0 10px 16px -6px rgba(15,23,42,0.35), 0 4px 8px -4px rgba(15,23,42,0.25)";
     });
-
     btn.addEventListener("focus", function () {
       btn.style.boxShadow =
         "0 0 0 2px #ffffff, 0 0 0 4px " + primaryColor;
@@ -225,31 +215,34 @@
     bgCircle.setAttribute("fill-opacity", "0.95");
     svg.appendChild(bgCircle);
 
-    // Headset icon (Lucide-style) inside the circle
-    var headsetPath1 = document.createElementNS(svgNS, "path");
-    headsetPath1.setAttribute(
+    // Speech bubble
+    var bubble = document.createElementNS(svgNS, "path");
+    // Rounded speech bubble with tail
+    bubble.setAttribute(
       "d",
-      "M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z"
+      "M4 7a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v5.5a4 4 0 0 1-4 4H13l-2.8 2.8c-.6.6-1.6.2-1.6-.6V16H8a4 4 0 0 1-4-4V7z"
     );
-    headsetPath1.setAttribute("fill", "none");
-    headsetPath1.setAttribute("stroke", primaryColor);
-    headsetPath1.setAttribute("stroke-width", "2");
-    headsetPath1.setAttribute("stroke-linecap", "round");
-    headsetPath1.setAttribute("stroke-linejoin", "round");
+    bubble.setAttribute("fill", "#ffffff");
+    bubble.setAttribute("stroke", primaryColor);
+    bubble.setAttribute("stroke-width", "1.7");
+    bubble.setAttribute("stroke-linejoin", "round");
+    svg.appendChild(bubble);
 
-    var headsetPath2 = document.createElementNS(svgNS, "path");
-    headsetPath2.setAttribute("d", "M21 16v2a4 4 0 0 1-4 4h-5");
-    headsetPath2.setAttribute("fill", "none");
-    headsetPath2.setAttribute("stroke", primaryColor);
-    headsetPath2.setAttribute("stroke-width", "2");
-    headsetPath2.setAttribute("stroke-linecap", "round");
-    headsetPath2.setAttribute("stroke-linejoin", "round");
+  // Three dots inside bubble (typing / ongoing conversation feel)
+  function makeDot(cx) {
+    var dot = document.createElementNS(svgNS, "circle");
+    dot.setAttribute("cx", String(cx));
+    dot.setAttribute("cy", "10.3");
+    dot.setAttribute("r", "0.85");
+    dot.setAttribute("fill", primaryColor);
+    return dot;
+    }
 
-    svg.appendChild(headsetPath1);
-    svg.appendChild(headsetPath2);
+    svg.appendChild(makeDot(9));
+    svg.appendChild(makeDot(12));
+    svg.appendChild(makeDot(15));
 
     btn.appendChild(svg);
-
 
     // ─────────────────────────────────────────────
     // Tooltip label
