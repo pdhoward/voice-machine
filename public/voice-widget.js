@@ -1,4 +1,8 @@
 // public/voice-widget.js
+
+/////////////////////////////////////////
+/////////   headset icon         ///////
+///////////////////////////////////////
 (function () {
   var WIDGET_ATTR = "data-tenant-widget-key";
   var SCRIPT_MATCH = 'script[src*="voice-widget.js"][' + WIDGET_ATTR + "]";
@@ -177,11 +181,13 @@
 
       var iframe = document.createElement("iframe");
       iframe.src =
-        baseUrl +
-        "/widget?token=" +
-        encodeURIComponent(token) +
-        "&tenantId=" +
-        encodeURIComponent(tenantId);
+         baseUrl +
+          "/widget?token=" +
+          encodeURIComponent(token) +
+          "&tenantId=" +
+          encodeURIComponent(tenantId) +
+          "&displayName=" +
+          encodeURIComponent(displayName);
       iframe.style.border = "none";
       iframe.style.width = "100%";
       iframe.style.maxWidth = "420px";

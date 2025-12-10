@@ -31,6 +31,9 @@ export function WidgetAgentPanel() {
   );
   const [sessionActive, setSessionActive] = useState(false);
 
+  // 🔹 Read displayName from iframe URL (?displayName=...)
+  const [displayName, setDisplayName] = useState("AI Voice Agent");
+
   const isBusy = status === "CONNECTING";
   const label = isConnected ? "End call" : "Start voice";
 
@@ -57,6 +60,20 @@ export function WidgetAgentPanel() {
   }, [conversation]);
 
    const transcriptEnabled = isConnected && transcriptConversation.length > 0;
+
+  // fetch the display name
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl = params.get("displayName");
+      if (fromUrl && fromUrl.trim().length > 0) {
+        setDisplayName(fromUrl.trim());
+      }
+    } catch {
+      // ignore, keep default
+    }
+  }, []);
 
   // Waveform animation
    useEffect(() => {
@@ -152,9 +169,9 @@ export function WidgetAgentPanel() {
       <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
         <div className="flex min-w-0 flex-col">
           <span className="truncate text-xs font-semibold tracking-tight">
-            Machine Voice Agent
+            {displayName}
           </span>
-          <span className="text-[11px] text-neutral-400">
+          <span className="text-[10px] text-neutral-400">
             Powered by Strategic Machines
           </span>
         </div>
@@ -210,7 +227,7 @@ export function WidgetAgentPanel() {
             <p className="text-[11px] leading-snug text-neutral-400 sm:text-xs">
               {isConnected
                 ? "You’re connected. Speak naturally and your assistant will respond."
-                : "Tap the mic to start a live conversation with your hotel agent."}
+                : `Tap the mic to start a live conversation with ${displayName}.`}
             </p>
           </div>
 
