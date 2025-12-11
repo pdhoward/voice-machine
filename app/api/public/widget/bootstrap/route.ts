@@ -146,7 +146,8 @@ export async function GET(req: NextRequest) {
         //   defaultVoice: voiceAgent.defaultVoice,
         //   maxConversationMinutes: voiceAgent.maxConversationMinutes,
         //   fallbackBehavior: voiceAgent.fallbackBehavior,
-        // },        
+        // },   
+        // logoUrk: https://api.logo.dev/logo?domain=cypressresort.com     
         widgetSessionToken,
       },
       200

@@ -1,10 +1,12 @@
 // hooks/use-agentbootstrap.ts
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useTenant } from "@/context/tenant-context";
 import { useRealtime } from "@/context/realtime-context";
-
+import { useToolsFunctions } from "@/hooks/use-tools";
+import { useVisualFunctions } from "@/hooks/use-visuals"; //show_component
+import VisualStageHost, { VisualStageHandle } from "@/components/visual-stage-host";
 import { fetchTenantHttpTools } from "@/lib/registry/fetchTenantTools";
 import { registerHttpToolsForTenant } from "@/lib/agent/registerTenantHttpTools";
 import {
@@ -22,6 +24,10 @@ import { useTranscriptSink } from "@/hooks/use-transcript-sink";
 export function useAgentBootstrap() {
   const { tenantId, token } = useTenant();
 
+  const stageRef = useRef<VisualStageHandle | null>(null);
+  const toolsFunctions = useToolsFunctions(); //locally defined utility tools in hook
+  const visualFunction = useVisualFunctions({stageRef}); //locally defined visual UI tool in hook
+
   const {
     status,
     volume,
@@ -35,7 +41,54 @@ export function useAgentBootstrap() {
     conversation,
   } = useRealtime();
 
-  // Bootstrap tools + system prompt whenever tenant changes
+  ////////////////////////////////////////////////////////////////
+  // Bootstrap tools + system prompt whenever tenant changes   //
+  //////////////////////////////////////////////////////////////
+
+    // register the local set of tools once
+  useEffect(() => {
+    console.log("[App] tools registration effect START");
+
+    // localName for Toolbox functions -> tool name in the model schema
+    const nameMap: Record<string, string> = {
+      timeFunction: "getCurrentTime",
+      backgroundFunction: "changeBackgroundColor",
+      partyFunction: "partyMode",
+      launchWebsite: "launchWebsite",
+      copyToClipboard: "copyToClipboard",
+      scrapeWebsite: "scrapeWebsite",
+      visualFunction: "show_component"
+      //expose more tools as needed
+    };
+
+    // register utility toolbox functions
+    Object.entries(toolsFunctions).forEach(([localName, fn]) => {
+      const toolName = nameMap[localName];
+      if (toolName && typeof fn === "function") {
+        console.log("[App] registerFunction:", toolName, "from localName:", localName);
+        registerFunction(toolName, fn);
+      } else {
+        console.log("[App] skip localName:", localName, "->", toolName, "fn type:", typeof fn);
+      }
+    });
+
+    // register visual UI function = show_component
+    Object.entries(visualFunction).forEach(([localName, fn]) => {
+      const toolName = nameMap[localName];
+      if (toolName && typeof fn === "function") {
+        console.log("[App] registerFunction:", toolName, "from localName:", localName);
+        registerFunction(toolName, fn);
+      } else {
+        console.log("[App] skip localName:", localName, "->", toolName, "fn type:", typeof fn);
+      }
+    });      
+
+      console.log("[App] CORE tools registration effect END");
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);   
+
+  /////////////////////end core tool load///////////////
+
   useEffect(() => {
     if (!tenantId) return;
 
@@ -54,13 +107,14 @@ export function useAgentBootstrap() {
           },
         });
 
+         // Build instructions once (tenant prompt + all exposed tools)
         const { name: agentName, base } = selectPromptForTenant(
           tenantId,
           promptsJson as StructuredPrompt | StructuredPrompt[]
         );
 
         const exposedToolDefs: ToolDef[] = [
-          ...coreTools,
+          ...coreTools.filter((t) => t.name !== "show_component"), // hide this tool from model 
           ...httpToolDefs,
         ];
 
