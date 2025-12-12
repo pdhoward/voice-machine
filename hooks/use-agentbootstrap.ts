@@ -1,7 +1,7 @@
 // hooks/use-agentbootstrap.ts
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useTenant } from "@/context/tenant-context";
 import { useRealtime } from "@/context/realtime-context";
 import { useToolsFunctions } from "@/hooks/use-tools";
@@ -21,12 +21,15 @@ import type { StructuredPrompt } from "@/types/prompt";
 import promptsJson from "@/promptlibrary/prompts.json";
 import { useTranscriptSink } from "@/hooks/use-transcript-sink";
 
-export function useAgentBootstrap() {
+export function useAgentBootstrap({ stageRef }: { stageRef: React.RefObject<VisualStageHandle | null> }) {
+  
+  const visualFunction = useVisualFunctions({ stageRef });
   const { tenantId, token } = useTenant();
+  
+  const toolsFunctions = useToolsFunctions(); //locally defined utility tools in hook 
 
-  const stageRef = useRef<VisualStageHandle | null>(null);
-  const toolsFunctions = useToolsFunctions(); //locally defined utility tools in hook
-  const visualFunction = useVisualFunctions({stageRef}); //locally defined visual UI tool in hook
+  const showOnStage = (args:any) => stageRef.current?.show?.(args);
+  const hideStage = () => stageRef.current?.hide?.();
 
   const {
     status,
@@ -99,8 +102,8 @@ export function useAgentBootstrap() {
         const httpToolDefs = await registerHttpToolsForTenant({
           tenantId,
           registerFunction,
-          showOnStage: () => {},
-          hideStage: () => {},
+          showOnStage,
+          hideStage,
           cap: 64,
           fetchDescriptors: async () => {
             return await fetchTenantHttpTools(tenantId);

@@ -1,9 +1,10 @@
 // components/widget/WidgetAgentPanel.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { MicIcon, PhoneOff, X } from "lucide-react";
+import VisualStageHost, { VisualStageHandle } from "@/components/visual-stage-host";
 import { useAgentBootstrap } from "@/hooks/use-agentbootstrap";
 import TranscriptDialogTrigger from "@/components/triggers/TranscriptDialogTrigger";
 
@@ -17,6 +18,9 @@ type ConvItem = {
 };
 
 export function WidgetAgentPanel() {
+  
+  const stageRef = useRef<VisualStageHandle | null>(null);
+  
   const {
     status,
     volume,
@@ -24,7 +28,7 @@ export function WidgetAgentPanel() {
     connect,
     disconnect,
     conversation,
-  } = useAgentBootstrap();
+  } = useAgentBootstrap({ stageRef });
 
   const [bars, setBars] = useState<number[]>(() =>
     Array(BAR_COUNT).fill(4)
@@ -350,16 +354,21 @@ export function WidgetAgentPanel() {
 
       {/* Footer */}
       <div className="flex items-center justify-between border-t border-neutral-900 px-3 py-2 text-[11px] text-neutral-500">
-        <span>
-          Status:{" "}
-          <span className="font-medium text-neutral-300">
+        <span className="flex items-center gap-2">
+          <span className={`h-2 w-2 rounded-full ${statusColor}`} />
+          <span>
+            Status:{" "}
+           <span className={`font-medium ${statusColor} text-neutral-900 px-2 py-0.5 rounded`}>
             {statusLabel}
           </span>
+          </span>
         </span>
+
         <span className="hidden text-neutral-600 sm:inline">
-          OpenAI Realtime · Multi-tenant
+          Strategic Machines, Inc. · Multi-tenant
         </span>
       </div>
+       <VisualStageHost ref={stageRef} />
     </div>
   );
 }
