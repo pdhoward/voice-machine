@@ -1,17 +1,19 @@
 // app/widget/WidgetPageClient.tsx
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef, useEffect,useLayoutEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Providers from "@/app/providers";
 import { TenantProvider } from "@/context/tenant-context";
 import { WidgetAgentPanel } from "@/components/widget/WidgetAgentPanel";
+import "./widget.css";
 
-// ---- Hook for auto-resizing iframe container ----
+
 function useWidgetAutoResize() {
   const ref = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
+  // ✅ useLayoutEffect gives a more stable first measurement
+  useLayoutEffect(() => {
     if (!ref.current) return;
 
     function sendSize() {
@@ -27,16 +29,18 @@ function useWidgetAutoResize() {
       );
     }
 
-    // Initial report
+    // First report
     sendSize();
 
-    // Watch for internal layout changes
+    // ✅ Catch post-hydration / font / motion settling
+    requestAnimationFrame(sendSize);
+    setTimeout(sendSize, 50);
+    setTimeout(sendSize, 250);
+
     const ro = new ResizeObserver(sendSize);
     ro.observe(ref.current);
 
-    // Also update on viewport resize (e.g., mobile orientation)
     window.addEventListener("resize", sendSize);
-
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", sendSize);
@@ -48,28 +52,32 @@ function useWidgetAutoResize() {
 
 export default function WidgetPageClient() {
   const params = useSearchParams();
-  const token = params.get("token"); // created by lib/tenants/widgetToken
+  const token = params.get("token");
   const tenantId = params.get("tenantId") ?? "machine";
 
   const containerRef = useWidgetAutoResize();
 
   if (!token) {
-    return (
-      <div className="p-4 text-sm text-red-500">
-        Missing widget token.
-      </div>
-    );
+    return <div className="p-4 text-sm text-red-500">Missing widget token.</div>;
   }
 
-  return (    
+  return (
     <TenantProvider tenantId={tenantId} token={token}>
-      <Providers>     
+      <Providers>
         <div
           ref={containerRef}
-          className="w-full max-w-sm bg-neutral-950 text-white rounded-t-2xl shadow-xl flex flex-col h-[420px]"
+          className={[
+            "w-[360px] max-w-[calc(100vw-16px)]",
+            "h-auto min-h-[88px]",            // ✅ critical
+            "bg-transparent",                 // ✅ prevents white flash
+            "text-white rounded-2xl",
+            "overflow-hidden",                // ✅ prevent internal scrollbars
+            "p-3",
+            "pb-[calc(12px+env(safe-area-inset-bottom))]",
+          ].join(" ")}
         >
           <WidgetAgentPanel />
-        </div>  
+        </div>
       </Providers>
     </TenantProvider>
   );

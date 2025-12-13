@@ -36,9 +36,11 @@
       "Announce 'Reservation confirmed' only after checkout success.",
       "For reservation numbers >6 digits: Say 'Your confirmation number is on screen and has been emailed.'"
     ],
-    "show_component_rules": [
-      "For media requests: Use component_name=media_gallery with media props.",
-      "Otherwise: Use tool-specified component (e.g., reservation_checkout); avoid multiples quickly.",
+    "show_component_rules": [  
+      "When an http tool is executed, follow the instructions specifically in the ui property for onSuccess or onError ",
+      "When a tool is executed successfully, and an instruction called emit_show_component is provided, provide that component_name and props to the tool show_component ",
+      "When a tool is executed successfully, and an instruction called emit_say is provided, emit the text and associated params",
+      "When a tool fails to execute, and an instruction is provided for emit_show_component or emit-say, follow those instructions",
       "Use minimal visuals for clarity."
     ],
     "date_rules": [
@@ -201,7 +203,7 @@
     }
   ]
 },
-[
+
  {
   "agent": {
     "tenantId": "machine",
@@ -373,9 +375,4 @@
   "examples": [    
   ]
 }
-
-]
-
-
-
 ]

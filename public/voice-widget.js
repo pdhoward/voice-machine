@@ -66,22 +66,31 @@
       return;
     }
 
-    if (event.data.type === "sm-voice-widget-resize" && activeIframe) {
-      var h = parseInt(event.data.height, 10);
-      var w = parseInt(event.data.width, 10);
+   if (event.data.type === "sm-voice-widget-resize" && activeIframe) {
+        var h = parseInt(event.data.height, 10);
+        var w = parseInt(event.data.width, 10);
 
-      if (!isNaN(h) && h > 0) {
-        // Keep a little margin from viewport edges
+        // Minimums prevent the “tiny bar with scrollbars” collapse.
+        // Tune once the pill is final.
+        var MIN_H = 88;   // pill + padding
+        var MIN_W = 320;  // pill width baseline
+
+        // Ignore garbage measurements during hydration/layout thrash
+        if (isNaN(h) || h < 40) return;
+        if (isNaN(w) || w < 120) return;
+
+        // Clamp to viewport
         var maxH = window.innerHeight - 40;
-        activeIframe.style.height = Math.min(h, maxH) + "px";
+        var maxW = window.innerWidth - 32;
+
+        var nextH = Math.min(Math.max(h, MIN_H), maxH);
+        var nextW = Math.min(Math.max(w, MIN_W), maxW);
+
+        activeIframe.style.height = nextH + "px";
+        activeIframe.style.width = nextW + "px";
       }
 
-      // Width is optional; usually we keep maxWidth fixed.
-      if (!isNaN(w) && w > 0) {
-        var maxW = Math.min(w, window.innerWidth - 32);
-        activeIframe.style.width = maxW + "px";
-      }
-    }
+
   });
 
   function createVoiceButton(options) {

@@ -26,19 +26,17 @@ export type VisualPayload = {
   description?: string;
   size?: "sm" | "md" | "lg" | "xl";
   props?: Record<string, any>;
-  media?: any[];       // mirrored into props.media if missing
-  url?: string;        // footer link (optional)
+  media?: any[];
+  url?: string;
 };
 
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   payload: VisualPayload | null;
-  /** Allows a visual to atomically swap itself for another visual */
   onReplace?: (next: VisualPayload) => void;
 };
 
-// Desktop/tablet width caps (applied at sm+)
 const sizeToMaxWidth: Record<NonNullable<VisualPayload["size"]>, string> = {
   sm: "sm:max-w-[380px]",
   md: "sm:max-w-[560px]",
@@ -46,7 +44,6 @@ const sizeToMaxWidth: Record<NonNullable<VisualPayload["size"]>, string> = {
   xl: "sm:max-w-[1120px]",
 };
 
-// Components that render their own chrome (header/close etc.)
 const HAS_OWN_CHROME = new Set<VisualName>(VISUALS_WITH_OWN_CHROME);
 
 function FallbackSkeleton() {
@@ -57,16 +54,25 @@ function FallbackSkeleton() {
   );
 }
 
-class VisualErrorBoundary extends React.Component<{ children: React.ReactNode }, { err?: Error }> {
+class VisualErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { err?: Error }
+> {
   state: { err?: Error } = {};
-  static getDerivedStateFromError(err: Error) { return { err }; }
+  static getDerivedStateFromError(err: Error) {
+    return { err };
+  }
   render() {
     if (this.state.err) {
       return (
         <Card className="bg-neutral-900 border-neutral-800">
           <CardContent className="p-6">
-            <div className="text-red-400 text-sm font-medium">Failed to render visual.</div>
-            <div className="text-neutral-400 text-xs mt-1">{this.state.err.message}</div>
+            <div className="text-red-400 text-sm font-medium">
+              Failed to render visual.
+            </div>
+            <div className="text-neutral-400 text-xs mt-1">
+              {this.state.err.message}
+            </div>
           </CardContent>
         </Card>
       );
@@ -76,13 +82,9 @@ class VisualErrorBoundary extends React.Component<{ children: React.ReactNode },
 }
 
 export default function VisualStage({ open, onOpenChange, payload, onReplace }: Props) {
-  console.groupCollapsed("[VisualStage] render");
-  console.log("open:", open);
-  console.log("payload:", payload);
-  console.groupEnd();
-
-  // Don’t portal anything if closed or no payload
-  if (!open || !payload) return null;
+  // ✅ If we truly have no payload at all, render nothing.
+  // Host is responsible for keeping payload during close animation.
+  if (!payload) return null;
 
   const size = payload.size ?? "md";
   const rawTitle = payload.title ?? prettyTitle(payload.component_name ?? "Preview");
@@ -91,23 +93,18 @@ export default function VisualStage({ open, onOpenChange, payload, onReplace }: 
 
   const Comp = payload.component_name ? getVisualComponent(payload.component_name) : null;
 
-  // host bridge for visuals to interact with the stage & voice agent
   const say = (text: string) => {
     try {
-      // fire a custom event; your agent can subscribe and speak immediately
       window.dispatchEvent(new CustomEvent("agent-say", { detail: { text } }));
-    } catch { /* no-op */ }
+    } catch {}
   };
+
   const host = {
-    /** replace the current visual with a new one */
     replace: (next: VisualPayload) => onReplace?.(next),
-    /** close the modal */
     close: () => onOpenChange(false),
-    /** ask the agent to speak a line immediately */
     say,
   };
 
-  // Mirror top-level → props so legacy callers still work
   const mergedProps: Record<string, any> = {
     ...(payload.props || {}),
     ...(payload.media && !payload.props?.media ? { media: payload.media } : {}),
@@ -115,7 +112,6 @@ export default function VisualStage({ open, onOpenChange, payload, onReplace }: 
     ...(payload.description && !payload.props?.description ? { description: payload.description } : {}),
     ...(payload.url && !payload.props?.url ? { url: payload.url } : {}),
     compact: true,
-    /** provide host bridge to all visuals in a consistent, opt-in way */
     host,
   };
 
@@ -126,29 +122,25 @@ export default function VisualStage({ open, onOpenChange, payload, onReplace }: 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        // ✅ keeps the content mounted so close animations can run
+        forceMount
         aria-labelledby={titleId}
         aria-describedby={description ? descId : undefined}
         className={[
-          // Surface & stacking
           "bg-neutral-900 text-neutral-200 border border-neutral-800 overflow-hidden z-[120]",
-          // Centered modal at all sizes (shadcn handles the portal + centering)
           "w-[min(96vw,430px)] max-h-[min(90dvh,720px)]",
           "rounded-xl",
-          // Layout: header / scrollable content / footer
           "p-0 grid grid-rows-[auto,1fr,auto]",
           "overscroll-contain",
-          // TABLET/DESKTOP: widen & raise height cap
           "sm:w-[92vw] sm:max-h-[min(85vh,900px)]",
           sizeToMaxWidth[size],
           "sm:rounded-2xl",
         ].join(" ")}
       >
-        {/* A11y title always present */}
         <VisuallyHidden>
           <DialogTitle>{titleText}</DialogTitle>
         </VisuallyHidden>
 
-        {/* Header (hidden if the child renders its own chrome) */}
         {showHeader ? (
           <DialogHeader className="px-4 sm:px-5 pt-3 sm:pt-4 pb-2 border-b border-neutral-800">
             <div className="flex items-start justify-between gap-3">
@@ -189,7 +181,6 @@ export default function VisualStage({ open, onOpenChange, payload, onReplace }: 
           </div>
         )}
 
-        {/* CONTENT (scrolls; never pushes header/footer out) */}
         <div className="min-h-0 overflow-auto p-3 sm:p-5 overscroll-y-contain">
           {!Comp ? (
             <UnknownComponent name={payload.component_name} />
@@ -202,7 +193,6 @@ export default function VisualStage({ open, onOpenChange, payload, onReplace }: 
           )}
         </div>
 
-        {/* FOOTER (optional link) */}
         <div className="px-3 sm:px-5 py-3 sm:py-4 border-t border-neutral-800 flex justify-end min-h-[40px]">
           {payload.url ? (
             <Button asChild variant="outline" size="sm" className="gap-1">
