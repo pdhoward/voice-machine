@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 
-import { Toaster } from "@/components/ui/sonner";
+import WidgetSonnerToaster from "@/components/widget/WidgetSonnerToaster";
 import { Analytics } from "@vercel/analytics/react";
 
 const geistSans = Geist({
@@ -41,8 +41,8 @@ export default function WidgetLayout({ children }: { children: React.ReactNode }
         {children}
       </div>
 
-      {/* keep these if you want them inside the iframe */}
-      <Toaster theme="dark" richColors />
+      {/* Pill Friendly Toaster for Toast */}
+      <WidgetSonnerToaster />
       <Analytics />
     </>
   );

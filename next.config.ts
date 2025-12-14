@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
     // ✅ Don't fail production builds on ESLint errors
       ignoreDuringBuilds: true,
     },
+   devIndicators: false,
    logging: {
       incomingRequests: process.env.NODE_ENV === "production" ? false : true,
    },

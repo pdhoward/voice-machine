@@ -1,4 +1,4 @@
-
+// @/lib/agent/registerTenantHttpTools.ts
 import type { ToolDef } from "@/types/tools";
 import { applyTemplate, hasUnresolvedTokens } from "@/lib/utils";
 import { reviveJsonStringsDeep } from "@/lib/datacheck/json-revive";

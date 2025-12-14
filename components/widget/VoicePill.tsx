@@ -150,7 +150,7 @@ export default function VoicePill({
         className="flex w-full items-center gap-3 px-4 py-3 text-left"
         aria-label="Voice controls"
       >
-        <span className="grid h-7 w-7 place-items-center rounded-full bg-white/10">
+        <span className="grid h-7 w-7 place-items-center rounded-full bg-white/10" title="Microphone">
           <MicIcon className="h-4 w-4 text-white" />
         </span>
 
@@ -182,6 +182,7 @@ export default function VoicePill({
             primary();
           }}
           role="button"
+          title={isConnected ? "End call" : "Start voice"}
           aria-label={isConnected ? "End call" : "Start voice"}
         >
           <AnimatePresence mode="wait" initial={false}>
