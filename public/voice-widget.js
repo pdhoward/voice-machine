@@ -95,7 +95,7 @@
 
   function createVoiceButton(options) {
     var displayName = options.displayName || "Our Team";
-    var primaryColor = options.primaryColor || "#2563eb";
+    var primaryColor = options.primaryColor || "#1b160e";
     var baseUrl = options.baseUrl;
     var token = options.token;
     var tenantId = options.tenantId;
@@ -216,7 +216,7 @@
     });
 
     // ─────────────────────────────────────────────
-    // Inline SVG icon (VoiceIcon) (Speech bubble with dots)
+    // Inline SVG icon (VoiceIcon) (headset)
     // ─────────────────────────────────────────────
  
     var svgNS = "http://www.w3.org/2000/svg";
@@ -349,7 +349,7 @@
           var token = json.widgetSessionToken;
           var displayName = json.displayName || "Our Team";
           var primaryColor =
-            (json.branding && json.branding.primaryColor) || "#2563eb";
+            (json.branding && json.branding.primaryColor) || "#1b160e";
 
           createVoiceButton({
             displayName: displayName,

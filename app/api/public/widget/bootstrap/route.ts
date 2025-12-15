@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
     //const voiceAgent = tenant.config.voiceAgent;   
     const primaryColor = tenant.flags?.betaFeatures
       ? "#16a34a"
-      : "#2563eb";
+      : "#1b160e";
 
     const widgetSessionToken = signWidgetSessionToken({
       tenant,
