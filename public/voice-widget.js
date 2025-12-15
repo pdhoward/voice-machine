@@ -267,7 +267,7 @@
     // Tooltip label
     // ─────────────────────────────────────────────
     var label = document.createElement("div");
-    label.textContent = "Talk to " + displayName;
+    label.textContent = "Talk to " + displayName + " AI Agent";
     label.style.fontFamily =
       "-apple-system, BlinkMacSystemFont, system-ui, sans-serif";
     label.style.fontSize = "12px";
