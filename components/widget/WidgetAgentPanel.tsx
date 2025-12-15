@@ -10,6 +10,7 @@ import { useAgentBootstrap } from "@/hooks/use-agentbootstrap";
 import TranscriptDialogTrigger from "@/components/triggers/TranscriptDialogTrigger";
 import VoicePill from "@/components/widget/VoicePill";
 
+
 type ConvItem = {
   id: string;
   role: string;
@@ -18,6 +19,7 @@ type ConvItem = {
 };
 
 export function WidgetAgentPanel() {
+  
   const stageRef = useRef<VisualStageHandle | null>(null);
 
   const { status, volume, isConnected, connect, disconnect, conversation } =
@@ -161,7 +163,9 @@ export function WidgetAgentPanel() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">                
+
+                 {/* Transcript trigger */}
                 <div
                   className={
                     transcriptEnabled
@@ -181,6 +185,7 @@ export function WidgetAgentPanel() {
                   onClick={handleClose}
                   className="rounded-full p-1 text-neutral-400 transition hover:bg-neutral-800 hover:text-neutral-100"
                   aria-label="Close widget"
+                  title="Close"
                 >
                   <X size={14} />
                 </button>

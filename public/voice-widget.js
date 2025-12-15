@@ -191,12 +191,9 @@
       var iframe = document.createElement("iframe");
       iframe.src =
          baseUrl +
-          "/widget?token=" +
-          encodeURIComponent(token) +
-          "&tenantId=" +
-          encodeURIComponent(tenantId) +
-          "&displayName=" +
-          encodeURIComponent(displayName);
+          "/widget?token=" + encodeURIComponent(token) +
+          "&tenantId=" + encodeURIComponent(tenantId) +
+          "&displayName=" + encodeURIComponent(displayName);        
       iframe.style.border = "none";
       iframe.style.width = "100%";
       iframe.style.maxWidth = "420px";
