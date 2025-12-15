@@ -159,7 +159,7 @@ export function WidgetAgentPanel() {
                   {displayName}
                 </span>
                 <span className="text-[10px] text-neutral-400">
-                  Powered by Strategic Machines
+                  
                 </span>
               </div>
 
@@ -223,7 +223,7 @@ export function WidgetAgentPanel() {
             </div>
 
             <div className="border-t border-neutral-900 px-3 py-2 text-[11px] text-neutral-500">
-              <span className="text-neutral-600">Strategic Machines, Inc.</span>
+              <span className="text-neutral-600">Built by Strategic Machines</span>
             </div>
           </motion.div>
         )}
