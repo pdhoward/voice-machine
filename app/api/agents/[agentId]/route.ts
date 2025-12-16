@@ -74,7 +74,7 @@ async function fetchRegistryTools(params: { tenantId: string; toolNames: string[
   if (!toolNames.length) return [];
 
   // Use your helper; we want strategic_machines / actions
-  const { db } = await getMongoConnection("strategic_machines", "strategic_machines");
+  const { db } = await getMongoConnection(process.env.DB!, process.env.MAINDBNAME!);
   const actions = db.collection("actions");
 
   return await actions
