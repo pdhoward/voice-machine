@@ -151,7 +151,7 @@ function Badge({
 }
 
 // Markdown renderer (code fences w/ SyntaxHighlighter)
-export function MarkdownBlock({ markdown }: { markdown: string }) {
+async function MarkdownBlock({ markdown }: { markdown: string }) {
   const components: Components = {
     code({ className, children }) {
       const raw = String(children ?? "");
