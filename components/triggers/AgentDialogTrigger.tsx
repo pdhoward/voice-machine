@@ -29,6 +29,8 @@ async function fetchJsonOrThrow<T>(url: string, parseLabel: string): Promise<T> 
   }
 }
 
+type Variant = "neutral" | "success" | "danger" | "warning";
+
 type AgentSelection = {
   tenantId: string;
   agentId: string;
@@ -39,9 +41,9 @@ type Props = {
   onChange: (next: AgentSelection) => void;
   defaultTenantId?: string;
   title?: string;
-
   // ✅ runtime summary from the phone page
   status?: { warnings?: string[]; errors?: string[] };
+  variant?: Variant;
 };
 
 export default function AgentDialogTrigger({
@@ -50,6 +52,7 @@ export default function AgentDialogTrigger({
   defaultTenantId,
   title = "Select Agent",
   status,
+  variant = "neutral",
 }: Props) {
   const [open, setOpen] = React.useState(false);
 
@@ -147,7 +150,7 @@ export default function AgentDialogTrigger({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <TriggerIconButton title={title} variant={triggerVariant}>
+        <TriggerIconButton title={title} variant={variant}>
           <UserPlus size={14} />
         </TriggerIconButton>
       </DialogTrigger>

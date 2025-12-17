@@ -20,15 +20,54 @@ type RuntimeAgentResponse = {
   errors: string[];
 };
 
+type ToolGroup = {
+  source: "registry" | "core" | string;
+  tenantId?: string;
+  names: string[];
+};
+
+function isToolGroup(x: any): x is ToolGroup {
+  return (
+    x &&
+    typeof x === "object" &&
+    typeof x.source === "string" &&
+    Array.isArray(x.names)
+  );
+}
+
+
 function uniq(arr: string[]) {
   return Array.from(new Set(arr.filter(Boolean)));
 }
 
-function normalizeToolName(x: unknown): string | null {
-  if (typeof x === "string" && x.trim()) return x.trim();
-  if (x && typeof x === "object" && typeof (x as any).name === "string") return (x as any).name.trim();
-  return null;
+function extractToolNamesFromGroupedFrontmatter(
+  frontTools: unknown,
+  warnings: string[]
+): string[] {
+  if (!Array.isArray(frontTools)) return [];
+
+  const out: string[] = [];
+
+  for (const g of frontTools) {
+    if (!isToolGroup(g)) {
+      warnings.push("frontmatter.tools contains an invalid entry (expected {source,names[]}).");
+      continue;
+    }
+
+    // Soft validation: registry groups should have tenantId
+    if (g.source === "registry" && (!g.tenantId || !String(g.tenantId).trim())) {
+      warnings.push("tools group with source=registry is missing tenantId.");
+    }
+
+    for (const n of g.names) {
+      if (typeof n === "string" && n.trim()) out.push(n.trim());
+      else warnings.push("tools group contains a non-string/empty tool name.");
+    }
+  }
+
+  return uniq(out);
 }
+
 
 function buildInstructionsFromSections(sections: { title: string; body: string }[]) {
   const cleaned = (sections || [])
@@ -107,10 +146,8 @@ export async function GET(req: NextRequest) {
     (typeof front?.agent?.name === "string" && front.agent.name.trim())
       ? front.agent.name.trim()
       : agentId;
-
-  const toolNames = Array.isArray(front?.tools)
-    ? uniq(front.tools.map(normalizeToolName).filter(Boolean) as string[])
-    : [];
+  
+  const toolNames = extractToolNamesFromGroupedFrontmatter(front?.tools, warnings);
 
   if (!toolNames.length) {
     warnings.push("No frontmatter.tools declared (runtime will not filter tools by spec).");

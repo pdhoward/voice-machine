@@ -33,6 +33,8 @@ import { coreTools } from "@/types/tools";
 import { loadAgentMdRuntime, type AgentRuntimeLoadResult } from "@/lib/checkIt/agentMdRuntime";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
+type Variant = "neutral" | "success" | "danger" | "warning";
+
 // ---------- page ----------
 const App: React.FC = () => {
   const didMountRef = useRef(false);
@@ -43,6 +45,8 @@ const App: React.FC = () => {
   const [timer, setTimer] = useState<number>(0);
   const [componentName, setComponentName] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [agentRuntime, setAgentRuntime] = useState<AgentRuntimeLoadResult | null>(null);
+  const [agentVariant, setAgentVariant] = useState<Variant>("neutral");
 
   const { tenantId: contextTenantId } = useTenant();
   const [selection, setSelection] = useState<{ tenantId: string; agentId: string } | null>(null);
@@ -188,6 +192,18 @@ const App: React.FC = () => {
 
         if (cancelled) return;
 
+        // ✅ store it so UI can reflect it
+        setAgentRuntime(runtime);
+
+        // ✅ derive button color from the same runtime result
+        const nextVariant: Variant =
+          runtime.errors.length ? "danger" :
+          runtime.warnings.length ? "warning" :
+          runtime.ok ? "success" :
+          "neutral";
+
+        setAgentVariant(nextVariant);       
+
         setRuntimeStatus({
           warnings: runtime.warnings || [],
           errors: runtime.errors || [],
@@ -204,8 +220,8 @@ const App: React.FC = () => {
             const rows = await fetchTenantHttpTools(effectiveTenantId);
             return rows;
           },
-        });
-
+        });    
+        
         if (cancelled) return;
 
         // 3) filter tools by runtime toolNames if present; otherwise allow all
@@ -230,11 +246,13 @@ const App: React.FC = () => {
         updateSession({ tools: exposedToolDefs, instructions: SYSTEM_PROMPT });
         window.dispatchEvent(new CustomEvent("tool-registry-updated"));
       } catch (e) {
+        if (cancelled) return; 
         console.error("[App] runtime/tool update failed:", e);
         setRuntimeStatus({
           warnings: [],
           errors: [e instanceof Error ? e.message : String(e)],
         });
+        setAgentVariant("danger");
       }
     })();
 
@@ -404,9 +422,15 @@ const App: React.FC = () => {
                       <AgentDialogTrigger
                         defaultTenantId={contextTenantId}
                         value={selection ?? undefined}
-                        onChange={setSelection}
+                        onChange={(next) => {
+                          setAgentVariant("neutral");
+                          setAgentRuntime(null);
+                          setRuntimeStatus({ warnings: [], errors: [] }); 
+                          setSelection(next);
+                        }}
                         title="Select Tenant + Agent"
                         status={runtimeStatus} // ✅ drive button color + dialog summary
+                        variant={agentVariant}
                       />
                     }
                     logsTrigger={<LogsDialogTrigger events={events} />}
