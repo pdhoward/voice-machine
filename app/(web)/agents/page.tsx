@@ -151,7 +151,7 @@ function Badge({
 }
 
 // Markdown renderer (code fences w/ SyntaxHighlighter)
-async function MarkdownBlock({ markdown }: { markdown: string }) {
+function MarkdownBlock({ markdown }: { markdown: string }) {
   const components: Components = {
     code({ className, children }) {
       const raw = String(children ?? "");
@@ -290,6 +290,9 @@ export default function AgentsAdminPage() {
   const [tenants, setTenants] = React.useState<AdminTenantItem[]>([]);
   const [tenantsLoading, setTenantsLoading] = React.useState(true);
   const [tenantsError, setTenantsError] = React.useState<string | null>(null);
+  const [runtime, setRuntime] = React.useState<any>(null);
+  const [runtimeError, setRuntimeError] = React.useState<string | null>(null);
+
 
   // Selected tenant (admin can change); default = contextTenantId
   const [selectedTenantId, setSelectedTenantId] = React.useState<string | null>(
