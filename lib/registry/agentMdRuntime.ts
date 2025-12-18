@@ -40,7 +40,7 @@ export async function loadAgentMdRuntime(args: {
   const url =
     `/api/agents/runtime?tenantId=${encodeURIComponent(tenantId)}&agentId=${encodeURIComponent(agentId)}`;
 
-  // This endpoint returns the runtime shape already
+  // This endpoint returns the runtime shape 
   const json = await fetchJsonAllowErrors<AgentRuntimeLoadResult>(url, "runtime agent");
 
   // Guardrails: ensure arrays exist

@@ -32,6 +32,7 @@ type LoadStats = {
 
 type ToolRegistryState = {
   tools: ToolSnapshot;
+  allowed: Set<string>;
   entries: { name: string; fn: ToolFn }[];
   sourceStatus: SourceStatus;
   stats: LoadStats;
@@ -43,6 +44,7 @@ type ToolRegistryContextValue = ToolRegistryState & {
   enablePolling: (ms?: number) => void;
   disablePolling: () => void;
   setVerboseLogging: (on: boolean) => void;
+  setAllowedTools: (names: string[], reason?: string) => void;
 };
 
 // 🔧 NEW: allow an app-level (context-backed) snapshot + subscription
@@ -182,6 +184,8 @@ export function ToolRegistryProvider({
     retries: 0,
   });
   const [verbose, setVerbose] = useState(initialVerbose);
+  const [allowed, setAllowed] = useState<Set<string>>(new Set());
+
 
   const pollRef = useRef<number | null>(null);
 
@@ -221,6 +225,15 @@ export function ToolRegistryProvider({
     }));
     log('loadOnce:', reason, '→', Object.keys(picked.data).length, 'tools via', picked.src);
   }, [ext, log]);
+
+  const setAllowedTools = useCallback((names: string[], reason?: string) => {
+    setAllowed(new Set((names || []).filter(Boolean)));
+    setStats((s) => ({
+      ...s,
+      lastReason: reason ? `${reason}` : s.lastReason,
+    }));
+  }, []);
+
 
   const refresh = useCallback((reason?: string) => {
     loadOnce(reason ?? 'manual');
@@ -307,6 +320,24 @@ export function ToolRegistryProvider({
     };
   }, [ext, loadOnce, log]);
 
+  // update the set of allwed tools from .md files as filtered by main page
+  useEffect(() => {
+    const handler = (e: any) => {
+      const names = e?.detail?.allowed;
+      if (Array.isArray(names)) {
+        setAllowed(new Set(names.filter(Boolean)));
+        setStats((s) => ({
+          ...s,
+          lastReason: `allowlist (${e?.detail?.filterEnabled ? "filtered" : "unfiltered"})`,
+        }));
+      }
+    };
+
+    window.addEventListener("tool-allowlist-updated", handler as any);
+    return () => window.removeEventListener("tool-allowlist-updated", handler as any);
+  }, []);
+
+
   const entries = useMemo(
     () =>
       Object.entries(tools)
@@ -321,10 +352,12 @@ export function ToolRegistryProvider({
     sourceStatus,
     stats,
     isLoading,
+    allowed,
     refresh,
     enablePolling,
     disablePolling,
     setVerboseLogging: setVerbose,
+    setAllowedTools, 
   };
 
   return (

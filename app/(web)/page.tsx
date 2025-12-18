@@ -30,7 +30,7 @@ import { registerHttpToolsForTenant } from "@/lib/agent/registerTenantHttpTools"
 import type { ToolDef } from "@/types/tools";
 import { coreTools } from "@/types/tools";
 
-import { loadAgentMdRuntime, type AgentRuntimeLoadResult } from "@/lib/checkIt/agentMdRuntime";
+import { loadAgentMdRuntime, type AgentRuntimeLoadResult } from "@/lib/registry/agentMdRuntime";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 type Variant = "neutral" | "success" | "danger" | "warning";
@@ -174,9 +174,14 @@ const App: React.FC = () => {
   // ✅ tenant + agent runtime load, http-tool registration, session update
   useEffect(() => {
     if (!effectiveTenantId || !effectiveAgentId) {
+      setAgentVariant("neutral");
       setRuntimeStatus({ warnings: [], errors: [] });
+      setAgentRuntime(null);
       return;
     }
+
+     setAgentVariant("neutral");
+     setRuntimeStatus({ warnings: [], errors: [] });
 
     let cancelled = false;
 
@@ -208,8 +213,16 @@ const App: React.FC = () => {
           warnings: runtime.warnings || [],
           errors: runtime.errors || [],
         });
+        
 
-        // 2) register tenant HTTP tools (mongo descriptors)
+        // 2) register tenant HTTP tools (API descriptors)
+
+        ////////////////////////////////////////////////////
+        /////  note that the set of tool descriptors   ////
+        ////   defined by the client and fetched from  ///
+        ///    the db are prepended with 'http_' to    //
+        //      avoid a name collision with core      //
+        ///////////////////////////////////////////////
         const httpToolDefs = await registerHttpToolsForTenant({
           tenantId: effectiveTenantId,
           registerFunction,
@@ -228,10 +241,43 @@ const App: React.FC = () => {
         const declared = runtime.toolNames || [];
         const filterEnabled = declared.length > 0;
 
+        // Build a lookup of core tool names (excluding show_component - hide from agent)
+        const coreNameSet = new Set(
+          coreTools
+            .filter((t) => t.name !== "show_component")
+            .map((t) => t.name)
+        );
+
+        // Normalize declared tool names so they match runtime tool naming conventions
+        const declaredNormalized = declared.map((name) => {
+          const n = String(name || "").trim();
+          if (!n) return "";
+          if (n.startsWith("http_")) return n;          // already prefixed
+          if (coreNameSet.has(n)) return n;             // core tool
+          return `http_${n}`;                           // assume registry/http tool
+        }).filter(Boolean);
+
+        // Use a Set for faster membership checks
+        const declaredSet = new Set(declaredNormalized);
+
         const exposedToolDefs: ToolDef[] = [
           ...coreTools.filter((t) => t.name !== "show_component"),
           ...httpToolDefs,
-        ].filter((t) => (filterEnabled ? declared.includes(t.name) : true));
+        ].filter((t) => (filterEnabled ? declaredSet.has(t.name) : true));   
+        
+        //  NOTIFY THE registry-context for reporting on the tool panel
+        window.dispatchEvent(
+          new CustomEvent("tool-allowlist-updated", {
+            detail: {
+              allowed: exposedToolDefs.map((t) => t.name),              
+              declared: declaredNormalized,
+              filterEnabled,
+              tenantId: effectiveTenantId,
+              agentId: effectiveAgentId,
+            },
+          })
+        );
+
 
         // 4) build system prompt from runtime instructions
         const todayIso = new Date().toISOString();

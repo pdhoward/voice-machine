@@ -59,7 +59,7 @@ function validateUrl(url: string): string {
     }
     return parsed.toString();
   } catch (err: any) {
-    throw new Error(`Invalid URL: ${err.message}`);
+    throw new Error(`Invalid URL: ${err.message} url: ${url}`);
   }
 }
 

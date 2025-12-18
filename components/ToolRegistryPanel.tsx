@@ -13,6 +13,7 @@ export default function ToolRegistryPanel() {
     enablePolling,
     disablePolling,
     setVerboseLogging,
+    allowed
   } = useToolRegistry();
 
   const [open, setOpen] = useState(false);
@@ -28,14 +29,16 @@ export default function ToolRegistryPanel() {
   }, [open]);
 
   const counts = useMemo(
-    () => ({
-      total: entries.length,
-      getter: sourceStatus.getter.keys.length,
-      realtime: sourceStatus.realtime.keys.length,
-      global: sourceStatus.global.keys.length,
-    }),
-    [entries, sourceStatus]
-  );
+  () => ({
+    total: entries.length,
+    allowed: allowed?.size ?? 0,
+    getter: sourceStatus.getter.keys.length,
+    realtime: sourceStatus.realtime.keys.length,
+    global: sourceStatus.global.keys.length,
+  }),
+  [entries, allowed, sourceStatus]
+);
+
 
   return (
     <div
@@ -54,7 +57,7 @@ export default function ToolRegistryPanel() {
           className="rounded-xl bg-neutral-900 text-neutral-200 border border-neutral-700 px-3 py-2 text-xs shadow hover:bg-neutral-800 active:scale-[0.99]"
           title="Open Tool Registry Panel"
         >
-          Tools: {counts.total}
+          Tools: {counts.allowed}/{counts.total}
         </button>
       ) : (
         <div
@@ -122,7 +125,11 @@ export default function ToolRegistryPanel() {
                 </span>
               </div>
               <div>Last: {stats.lastLoadedAt ? stats.lastLoadedAt.toLocaleTimeString() : "—"}</div>
-              <div className="truncate">Error: {stats.lastError ?? "—"}</div>
+              {stats.lastError ? (
+              <div className="truncate text-red-400">Error: {stats.lastError}</div>
+             ) : (
+              <div className="truncate text-green-400">Tools Pass</div> 
+             )}
             </div>
             <div className="space-y-0.5">
               <div>
@@ -138,33 +145,60 @@ export default function ToolRegistryPanel() {
           {/* Scrollable list */}
           <div className="min-h-0 max-h-[60dvh] overflow-auto">
             {entries.length === 0 ? (
-              <div className="px-3 py-6 text-neutral-500 text-sm text-center">No tools loaded.</div>
+              <div className="px-3 py-6 text-neutral-500 text-sm text-center">
+                No tools loaded.
+              </div>
             ) : (
-              entries.map((e) => (
-                <div key={e.name} className="border-b border-neutral-900/70">
-                  <div className="flex items-center justify-between gap-2 px-3 py-2">
-                    <div className="text-neutral-200 text-sm font-medium truncate">{e.name}</div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => setShowCode((p) => (p === e.name ? null : e.name))}
-                        className="rounded-md bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 px-2 py-1 text-xs"
-                      >
-                        {showCode === e.name ? "Hide" : "View"}
-                      </button>
-                    </div>
-                  </div>
+              entries.map((e) => {
+                const isAllowed = allowed?.has(e.name);
 
-                  {showCode === e.name && (
-                    <div className="px-3 pb-3">
-                      <pre className="block w-full max-h-[40dvh] overflow-auto rounded-md bg-neutral-950 border border-neutral-800 p-2 text-[12px] leading-relaxed text-neutral-300">
-                        {safeToString(e.fn)}
-                      </pre>
+                return (
+                  <div key={e.name} className="border-b border-neutral-900/70">
+                    <div className="flex items-center justify-between gap-2 px-3 py-2">
+                      {/* LEFT: status dot + tool name */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={[
+                            "inline-block h-2 w-2 rounded-full shrink-0",
+                            isAllowed ? "bg-emerald-400" : "bg-red-500/70",
+                          ].join(" ")}
+                          title={
+                            isAllowed
+                              ? "Allowed for this agent"
+                              : "Not allowed for this agent"
+                          }
+                        />
+                        <div className="text-neutral-200 text-sm font-medium truncate">
+                          {e.name}
+                        </div>
+                      </div>
+
+                      {/* RIGHT: actions */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() =>
+                            setShowCode((p) => (p === e.name ? null : e.name))
+                          }
+                          className="rounded-md bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 px-2 py-1 text-xs"
+                        >
+                          {showCode === e.name ? "Hide" : "View"}
+                        </button>
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))
+
+                    {showCode === e.name && (
+                      <div className="px-3 pb-3">
+                        <pre className="block w-full max-h-[40dvh] overflow-auto rounded-md bg-neutral-950 border border-neutral-800 p-2 text-[12px] leading-relaxed text-neutral-300">
+                          {safeToString(e.fn)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
+
         </div>
       )}
     </div>
