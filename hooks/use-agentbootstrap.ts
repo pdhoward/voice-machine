@@ -1,7 +1,7 @@
 // hooks/use-agentbootstrap.ts
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useTenant } from "@/context/tenant-context";
 import { useRealtime } from "@/context/realtime-context";
 import { useToolsFunctions } from "@/hooks/use-tools";
@@ -23,8 +23,15 @@ export function useAgentBootstrap({ stageRef }: { stageRef: React.RefObject<Visu
   
   const toolsFunctions = useToolsFunctions(); //locally defined utility tools in hook 
 
-  const showOnStage = (args:any) => stageRef.current?.show?.(args);
-  const hideStage = () => stageRef.current?.hide?.();
+ const showOnStage = useCallback((args: any) => {
+    stageRef.current?.show?.(args);
+  }, [stageRef]);
+
+  const hideStage = useCallback(() => {
+    stageRef.current?.hide?.();
+  }, [stageRef]);
+
+  const didRegisterRef = useRef(false);
 
   const {
     status,
@@ -46,6 +53,9 @@ export function useAgentBootstrap({ stageRef }: { stageRef: React.RefObject<Visu
     // register the local set of tools once
   useEffect(() => {
     console.log("[App] tools registration effect START");
+
+     if (didRegisterRef.current) return; // prevent dounle register
+     didRegisterRef.current = true;
 
     // localName for Toolbox functions -> tool name in the model schema
     const nameMap: Record<string, string> = {
@@ -82,8 +92,8 @@ export function useAgentBootstrap({ stageRef }: { stageRef: React.RefObject<Visu
     });      
 
       console.log("[App] CORE tools registration effect END");
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, []);   
+        
+  }, [registerFunction, toolsFunctions, visualFunction])  
 
   /////////////////////end core tool load///////////////
 
@@ -102,10 +112,7 @@ export function useAgentBootstrap({ stageRef }: { stageRef: React.RefObject<Visu
           agentId,
         });
 
-        if (cancelled) return;
-
-        console.log(`===============debug==============`)
-        console.log(runtime)
+        if (cancelled) return;      
 
         // 2) register tenant HTTP tools (all available for tenant)
         const httpToolDefs = await registerHttpToolsForTenant({
@@ -149,7 +156,8 @@ export function useAgentBootstrap({ stageRef }: { stageRef: React.RefObject<Visu
         ].filter((t) => (filterEnabled ? declaredSet.has(t.name) : true));
 
         // 4) build system prompt from runtime instructions
-        const todayIso = new Date().toISOString();
+        const todayIso = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
         const SYSTEM_PROMPT = [
           `TODAY_IS: ${todayIso} (use America/Chicago for local comparisons)`,
           runtime.instructions || "",
