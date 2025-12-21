@@ -32,7 +32,7 @@ const rlUser = redis ? new Ratelimit({
   prefix: "rl:user",
 }) : null;
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   if (req.method === "OPTIONS") return NextResponse.next();
 
   const ip = ipFromHeaders(req);

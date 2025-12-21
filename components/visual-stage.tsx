@@ -1,4 +1,3 @@
-// components/visual-stage.tsx
 "use client";
 
 import React from "react";
@@ -83,7 +82,6 @@ class VisualErrorBoundary extends React.Component<
 
 export default function VisualStage({ open, onOpenChange, payload, onReplace }: Props) {
   // ✅ If we truly have no payload at all, render nothing.
-  // Host is responsible for keeping payload during close animation.
   if (!payload) return null;
 
   const size = payload.size ?? "md";
@@ -122,7 +120,6 @@ export default function VisualStage({ open, onOpenChange, payload, onReplace }: 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        // ✅ keeps the content mounted so close animations can run
         forceMount
         aria-labelledby={titleId}
         aria-describedby={description ? descId : undefined}
@@ -181,7 +178,14 @@ export default function VisualStage({ open, onOpenChange, payload, onReplace }: 
           </div>
         )}
 
-        <div className="min-h-0 overflow-auto p-3 sm:p-5 overscroll-y-contain">
+        {/* 👇 UPDATED CONTAINER 👇 */}
+        <div 
+          className="min-h-0 overflow-auto p-3 sm:p-5 overscroll-y-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          style={{
+             scrollbarWidth: 'none',
+             msOverflowStyle: 'none'
+          }}
+        >
           {!Comp ? (
             <UnknownComponent name={payload.component_name} />
           ) : (
@@ -192,6 +196,7 @@ export default function VisualStage({ open, onOpenChange, payload, onReplace }: 
             </VisualErrorBoundary>
           )}
         </div>
+        {/* 👆 END UPDATE 👆 */}
 
         <div className="px-3 sm:px-5 py-3 sm:py-4 border-t border-neutral-800 flex justify-end min-h-[40px]">
           {payload.url ? (

@@ -1,11 +1,7 @@
 import type { NextConfig } from "next";
 import { withBotId } from "botid/next/config";
 
-const nextConfig: NextConfig = {
-   eslint: {
-    // ✅ Don't fail production builds on ESLint errors
-      ignoreDuringBuilds: true,
-    },
+const nextConfig: NextConfig = {    
    devIndicators: false,
    logging: {
       incomingRequests: process.env.NODE_ENV === "production" ? false : true,

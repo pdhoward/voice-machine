@@ -100,6 +100,69 @@ function isAbsoluteHttpsUrl(url?: string) {
   }
 }
 
+function isVisualName(value: string): value is VisualName {
+  return VALID_COMPONENTS.has(value as VisualName);
+}
+
+
+const VALID_COMPONENTS = new Set(VISUAL_COMPONENTS);
+
+const COMPONENT_ALIASES: Record<string, VisualName> = {
+  media_viewer: "media_gallery",
+  gallery: "media_gallery",
+  images: "media_gallery",
+  image: "image_viewer",
+  viewer: "image_viewer",
+  video_player: "video",
+  videoplayer: "video",
+};
+
+function coerceComponentName(p: any): VisualName {
+  const raw = p?.component_name;
+
+  // Alias common LLM near-misses
+  if (typeof raw === "string" && COMPONENT_ALIASES[raw]) return COMPONENT_ALIASES[raw];
+
+  // If already valid, keep it
+  if (typeof raw === "string" && isVisualName(raw)) {
+      return raw;
+  }
+  // Infer from media if present
+  const media = Array.isArray(p?.media) ? p.media : [];
+  if (media.length > 1) return "media_gallery";
+  if (media.length === 1) return media[0]?.kind === "video" ? "video" : "image_viewer";
+
+  // Infer from url/src if present
+  const src: string | undefined = p?.url ?? p?.src ?? p?.props?.url ?? p?.props?.src;
+  if (typeof src === "string" && src.startsWith("https://")) {
+    return looksLikeVideo(src) ? "video" : "image_viewer";
+  }
+
+  // Safe default
+  return "catalog_results";
+}
+
+function repairPayload(input: any) {
+  const p: any = { ...input, props: { ...(input?.props || {}) } };
+
+  // Ensure media exists if url/src exists
+  if ((!Array.isArray(p.media) || p.media.length === 0)) {
+    const src: string | undefined = p.url ?? p.src ?? p.props?.url ?? p.props?.src;
+    if (typeof src === "string" && src.startsWith("https://")) {
+      p.media = looksLikeVideo(src)
+        ? [{ kind: "video", src }]
+        : [{ kind: "image", src }];
+      p.props.media = p.media;
+    }
+  }
+
+  // Always coerce to a valid component
+  p.component_name = coerceComponentName(p);
+
+  return p;
+}
+
+
 // ------------------------- Schema (single) --------------------------------
 // This schema is the *canonical* payload contract for visuals. Everything
 // the model/tool passes must conform to this shape after `autoRoute`.
@@ -112,7 +175,8 @@ const ImageItem = z
     width: z.number().optional(),
     height: z.number().optional(),
   })
-  .strict();
+  .passthrough()
+
 
 const VideoItem = z
   .object({
@@ -122,7 +186,8 @@ const VideoItem = z
     // allow alt on video as a caption/label if you use it in UI
     alt: z.string().optional(),
   })
-  .strict();
+  .passthrough()
+
 
 const VisualMediaItem = z.discriminatedUnion("kind", [ImageItem, VideoItem]);
 type TMediaItem = z.infer<typeof VisualMediaItem>;
@@ -140,7 +205,7 @@ export const VisualPayloadSchema = z
     props: z.record(z.any()).optional(),
     media: z.array(VisualMediaItem).optional(),
   })
-  .strict()
+  .passthrough()
   // Per-component rules (small, predictable constraints):
   .refine(
     (p) =>
@@ -316,73 +381,34 @@ export const useVisualFunctions = ({ stageRef }: Props) => {
     // 2) Auto-route to the right component and guarantee component_name
     const routed = autoRoute(raw);
     console.log("[show_component] routed", routed);
-
-    // 3) Validate against the single schema
-    const parsed = VisualPayloadSchema.safeParse(routed);
     
+      // 3) Validate against the schema (soft-first)
+    let parsed = VisualPayloadSchema.safeParse(routed);
+
     if (!parsed.success) {
-      console.error("[show_component] zod error", parsed.error);
+      // Soft-repair: coerce component_name + media based on what we can infer
+      const repaired = repairPayload(routed);
 
-      // --- Fail-soft fallback: if it's obviously renderable as a gallery, show it ---
-      const media = Array.isArray(routed?.media) ? routed.media : [];
-      const looksRenderable =
-        routed?.component_name === "media_gallery" &&
-        media.length > 0 &&
-        media.every(
-          (m: any) =>
-            m?.src &&
-            typeof m.src === "string" &&
-            m.src.startsWith("https://") &&
-            (m.kind === "image" || m.kind === "video")
-        );
+      parsed = VisualPayloadSchema.safeParse(repaired);
 
-      if (looksRenderable) {
-        const fallback = {
-          ...routed,
-          component_name: "media_gallery",
-          props: { ...(routed.props || {}), media },
-        };
-        console.warn(
-          "[show_component] using safe fallback render for media_gallery"
-        );
-        stageRef.current?.show(fallback);
+      if (!parsed.success) {
+        // Only now is this a "real" problem worth surfacing
+        console.warn("[show_component] payload rejected after repair", parsed.error);
+
+        const issues = parsed.error.issues.map((i) => ({
+          path: i.path.join("."),
+          message: i.message,
+        }));
+
         return {
-          ok: true,
-          routed_component: "media_gallery",
-          warning: "zod_failed_fallback_rendered",
+          ok: false,
+          error: "schema_violation",
+          why: "Payload could not be repaired into a valid visual payload.",
+          issues,
         };
       }
-
-      // Hard error path (feeds the agent a precise fix)
-      const issues = parsed.error.issues.map((i) => ({
-        path: i.path.join("."),
-        message: i.message,
-      }));
-      return {
-        ok: false,
-        error: "schema_violation",
-        why: "Your tool arguments didn’t match the schema.",
-        fix: {
-          summary: "Recall show_component with a valid VisualPayload.",
-          minimal_example: {
-            component_name: "media_gallery",
-            media: [
-              {
-                kind: "image",
-                src: "https://res.cloudinary.com/stratmachine/image/upload/v1759170503/cypress/outdoorshower_pt4q3n.jpg",
-              },
-            ],
-          },
-          must: [
-            "Populate media[].src with working, absolute HTTPS URLs.",
-            "Derive media from the Unit document’s images array.",
-            "If you don't have the Unit, first call compose_media_payload(tenantId, unitId) or fetch /api/booking/{tenantId}/rooms?active=true and use the matching unit.",
-            "Do NOT use placeholders like 'https://...'.",
-          ],
-        },
-        issues,
-      };
     }
+
 
     const payload = parsed.data as any;
 
