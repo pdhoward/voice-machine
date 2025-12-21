@@ -6,6 +6,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 type TenantCtx = {
   tenantId: string;
   token?: string | null;
+  agentId?: string;
   setToken: (t: string | null) => void;
 };
 
@@ -13,11 +14,13 @@ const TenantContext = createContext<TenantCtx | null>(null);
 
 export function TenantProvider({
   children,
-  tenantId,
+  tenantId,  
+  agentId,
   token: initialToken = null,
 }: {
   children: React.ReactNode;
   tenantId?: string;
+  agentId?: string;
   token?: string | null;
 }) {
   const [token, setToken] = useState<string | null>(initialToken);
@@ -36,13 +39,17 @@ export function TenantProvider({
     })();
   }, [token]);
 
+    const effectiveTenantId =
+      tenantId ?? process.env.NEXT_PUBLIC_TENANT_ID ?? "machine";
+
   const value = useMemo(
     () => ({
-      tenantId: tenantId ?? process.env.NEXT_PUBLIC_TENANT_ID ?? "cypress-resorts",
+      tenantId: effectiveTenantId,
+      agentId: agentId ?? "",
       token,
       setToken,
     }),
-    [tenantId, token]
+    [tenantId, agentId, token]
   );
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;

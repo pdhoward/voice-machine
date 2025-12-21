@@ -5,6 +5,7 @@
 ///////////////////////////////////////
 (function () {
   var WIDGET_ATTR = "data-tenant-widget-key";
+  var AGENT_ATTR = "data-agent-id";
   var SCRIPT_MATCH = 'script[src*="voice-widget.js"][' + WIDGET_ATTR + "]";
 
   // Global state for active overlay / launcher / iframe
@@ -99,6 +100,7 @@
     var baseUrl = options.baseUrl;
     var token = options.token;
     var tenantId = options.tenantId;
+    var agentId = options.agentId || "";
 
     // Match the cookie button's neutral stone palette - cypress
     var orbBorderColor = "#d6d3d1"; // approx Tailwind stone-300
@@ -193,6 +195,7 @@
          baseUrl +
           "/widget?token=" + encodeURIComponent(token) +
           "&tenantId=" + encodeURIComponent(tenantId) +
+          (agentId ? "&agentId=" + encodeURIComponent(agentId) : "") +
           "&displayName=" + encodeURIComponent(displayName);        
       iframe.style.border = "none";
       iframe.style.width = "100%";
@@ -317,6 +320,9 @@
       var key = script.getAttribute(WIDGET_ATTR);
       if (!key) return;
 
+      // agent id from script tag
+      var agentId = script.getAttribute(AGENT_ATTR) || "";
+
       var scriptSrc = script.getAttribute("src") || "";
       var baseUrl;
       try {
@@ -329,7 +335,8 @@
       fetch(
         baseUrl +
           "/api/public/widget/bootstrap?key=" +
-          encodeURIComponent(key),
+          encodeURIComponent(key) + 
+          (agentId ? "&agentId=" + encodeURIComponent(agentId) : ""),
         {
           credentials: "omit",
         }
@@ -350,13 +357,15 @@
           var displayName = json.displayName || "Our Team";
           var primaryColor =
             (json.branding && json.branding.primaryColor) || "#1b160e";
+          var resolvedAgentId = json.agentId || agentId || ""; // allow fallback
 
           createVoiceButton({
             displayName: displayName,
             primaryColor: primaryColor,
             baseUrl: baseUrl,
             token: token,
-            tenantId: json.tenantId || "machine",
+            tenantId: json.tenantId || "machine",    
+            agentId: resolvedAgentId,   // server validated     
           });
         })
         .catch(function (err) {

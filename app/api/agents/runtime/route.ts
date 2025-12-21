@@ -83,6 +83,22 @@ function buildInstructionsFromSections(sections: { title: string; body: string }
     .trim();
 }
 
+function getBaseUrl(req: NextRequest) {
+  // Prefer proxy headers (Vercel, Cloudflare, Nginx, etc.)
+  const proto =
+    req.headers.get("x-forwarded-proto") ??
+    (process.env.NODE_ENV === "development" ? "http" : "https");
+
+  const host =
+    req.headers.get("x-forwarded-host") ??
+    req.headers.get("host");
+
+  // Last resort fallback (shouldn’t happen often)
+  if (!host) return req.nextUrl.origin;
+
+  return `${proto}://${host}`;
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url);
   const tenantId = searchParams.get("tenantId") || "";
@@ -108,12 +124,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(out, { status: 400 });
   }
 
+  const baseUrl = getBaseUrl(req);
+
   // Reuse your existing validated agent-doc endpoint
-  const agentDocUrl = `${origin}/api/agents/${encodeURIComponent(agentId)}?tenantId=${encodeURIComponent(tenantId)}`;
+  const agentDocUrl = `${baseUrl}/api/agents/${encodeURIComponent(agentId)}?tenantId=${encodeURIComponent(tenantId)}`;
 
   let doc: AgentMdDocResponse | null = null;
   try {
     const res = await fetch(agentDocUrl, { cache: "no-store" });
+
+     if (!res.ok) {
+      errors.push(`Prompt fetch failed for ${tenantId} and ${agentId}: ${res.status} ${res.statusText}`);
+    }
     const text = await res.text();
 
     try {

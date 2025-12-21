@@ -54,6 +54,7 @@ export default function WidgetPageClient() {
   const params = useSearchParams();
   const token = params.get("token");
   const tenantId = params.get("tenantId") ?? "machine";
+  const agentId = params.get("agentId") ?? ""; 
 
   const containerRef = useWidgetAutoResize();
 
@@ -62,7 +63,7 @@ export default function WidgetPageClient() {
   }
 
   return (
-    <TenantProvider tenantId={tenantId} token={token}>
+    <TenantProvider tenantId={tenantId} agentId={agentId} token={token}>
       <Providers>
         <div
           ref={containerRef}

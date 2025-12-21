@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const key = searchParams.get("key");
+    const requestedAgentId = (searchParams.get("agentId") || "").trim();
 
     if (!key) {
       return withCORS({ ok: false, error: "missing_widget_key" }, 400);
@@ -128,12 +129,16 @@ export async function GET(req: NextRequest) {
       //  undefined is indefinite. or can be set to "30m"
       ttl: undefined,
     });
+
+    // no default agentId for fallback behavior - must provide with match to .md prompt
+    const agentId = requestedAgentId || ""; 
     
     return withCORS(
       {
         ok: true,
         tenantId: tenant.tenantId,
         displayName,
+        agentId,
         branding: {
           primaryColor,
           logoUrl: tenant.identity?.domain

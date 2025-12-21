@@ -9,22 +9,17 @@ import { useVisualFunctions } from "@/hooks/use-visuals"; //show_component
 import VisualStageHost, { VisualStageHandle } from "@/components/visual-stage-host";
 import { fetchTenantHttpTools } from "@/lib/registry/fetchTenantTools";
 import { registerHttpToolsForTenant } from "@/lib/agent/registerTenantHttpTools";
-import {
-  selectPromptForTenant,
-  buildInstructions,
-} from "@/lib/agent/managePrompts";
+import { loadAgentMdRuntime, type AgentRuntimeLoadResult } from "@/lib/registry/agentMdRuntime";
 
 import { coreTools } from "@/types/tools";
 import type { ToolDef } from "@/types/tools";
-import type { StructuredPrompt } from "@/types/prompt";
 
-import promptsJson from "@/promptlibrary/prompts.json";
 import { useTranscriptSink } from "@/hooks/use-transcript-sink";
 
 export function useAgentBootstrap({ stageRef }: { stageRef: React.RefObject<VisualStageHandle | null> }) {
   
   const visualFunction = useVisualFunctions({ stageRef });
-  const { tenantId, token } = useTenant();
+  const { tenantId, agentId, token } = useTenant();
   
   const toolsFunctions = useToolsFunctions(); //locally defined utility tools in hook 
 
@@ -93,12 +88,26 @@ export function useAgentBootstrap({ stageRef }: { stageRef: React.RefObject<Visu
   /////////////////////end core tool load///////////////
 
   useEffect(() => {
-    if (!tenantId) return;
+    if (!tenantId || !agentId) return;
+
+    let cancelled = false;
 
     (async () => {
       try {
         unregisterFunctionsByPrefix("http_");
 
+        // 1) runtime spec (instructions + toolNames)
+        const runtime: AgentRuntimeLoadResult = await loadAgentMdRuntime({
+          tenantId,
+          agentId,
+        });
+
+        if (cancelled) return;
+
+        console.log(`===============debug==============`)
+        console.log(runtime)
+
+        // 2) register tenant HTTP tools (all available for tenant)
         const httpToolDefs = await registerHttpToolsForTenant({
           tenantId,
           registerFunction,
@@ -110,25 +119,47 @@ export function useAgentBootstrap({ stageRef }: { stageRef: React.RefObject<Visu
           },
         });
 
-         // Build instructions once (tenant prompt + all exposed tools)
-        const { name: agentName, base } = selectPromptForTenant(
-          tenantId,
-          promptsJson as StructuredPrompt | StructuredPrompt[]
+        if (cancelled) return;
+
+        // 3) filter tools by runtime.toolNames (allowlist) if present
+        const declared = runtime.toolNames || [];
+        const filterEnabled = declared.length > 0;
+
+        const coreNameSet = new Set(
+          coreTools
+            .filter((t) => t.name !== "show_component")
+            .map((t) => t.name)
         );
 
-        const exposedToolDefs: ToolDef[] = [
-          ...coreTools.filter((t) => t.name !== "show_component"), // hide this tool from model 
-          ...httpToolDefs,
-        ];
+        const declaredNormalized = declared
+          .map((name) => {
+            const n = String(name || "").trim();
+            if (!n) return "";
+            if (n.startsWith("http_")) return n;
+            if (coreNameSet.has(n)) return n;
+            return `http_${n}`;
+          })
+          .filter(Boolean);
 
+        const declaredSet = new Set(declaredNormalized);
+
+        const exposedToolDefs: ToolDef[] = [
+          ...coreTools.filter((t) => t.name !== "show_component"),
+          ...httpToolDefs,
+        ].filter((t) => (filterEnabled ? declaredSet.has(t.name) : true));
+
+        // 4) build system prompt from runtime instructions
         const todayIso = new Date().toISOString();
         const SYSTEM_PROMPT = [
           `TODAY_IS: ${todayIso} (use America/Chicago for local comparisons)`,
-          buildInstructions(base, exposedToolDefs),
-        ].join("\n\n");
+          runtime.instructions || "",
+        ]
+          .filter(Boolean)
+          .join("\n\n");
 
+        // 5) agent + session update
         setAgent({
-          name: agentName || tenantId,
+          name: runtime.agentName || agentId || tenantId,
           voice: "alloy",
         });
 
@@ -137,19 +168,25 @@ export function useAgentBootstrap({ stageRef }: { stageRef: React.RefObject<Visu
           instructions: SYSTEM_PROMPT,
         });
       } catch (err) {
-        console.error(
-          "[useAgentBootstrap] error bootstrapping agent",
-          err
-        );
+        if (cancelled) return;
+        console.error("[useAgentBootstrap] runtime/tool update failed:", err);
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     tenantId,
+    agentId,
     registerFunction,
     unregisterFunctionsByPrefix,
     setAgent,
     updateSession,
+    showOnStage,
+    hideStage,
   ]);
+
 
   // 🔹 Transcripts for BOTH console + widget:
   // - console: token will be undefined, source defaults to "console"

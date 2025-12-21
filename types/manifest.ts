@@ -15,7 +15,7 @@ export type VisualIntent =
   | "media"
   | "video"
   | "image";
-// 👆 notice: no "results" any more
+
 
 type VisualDef = {
   name: VisualName;

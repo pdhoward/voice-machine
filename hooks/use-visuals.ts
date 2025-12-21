@@ -319,6 +319,7 @@ export const useVisualFunctions = ({ stageRef }: Props) => {
 
     // 3) Validate against the single schema
     const parsed = VisualPayloadSchema.safeParse(routed);
+    
     if (!parsed.success) {
       console.error("[show_component] zod error", parsed.error);
 
