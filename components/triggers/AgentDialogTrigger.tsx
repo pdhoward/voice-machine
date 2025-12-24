@@ -31,9 +31,11 @@ async function fetchJsonOrThrow<T>(url: string, parseLabel: string): Promise<T> 
 
 type Variant = "neutral" | "success" | "danger" | "warning";
 
-type AgentSelection = {
+export type AgentSelection = {
   tenantId: string;
+  tenantName: string;
   agentId: string;
+  agentName: string;
 };
 
 type Props = {
@@ -41,7 +43,6 @@ type Props = {
   onChange: (next: AgentSelection) => void;
   defaultTenantId?: string;
   title?: string;
-  // ✅ runtime summary from the phone page
   status?: { warnings?: string[]; errors?: string[] };
   variant?: Variant;
 };
@@ -69,9 +70,6 @@ export default function AgentDialogTrigger({
 
   const runtimeErrors = status?.errors ?? [];
   const runtimeWarnings = status?.warnings ?? [];
-
-  const triggerVariant =
-    runtimeErrors.length > 0 ? "danger" : runtimeWarnings.length > 0 ? "warning" : "neutral";
 
   // keep local state in sync if parent changes selection externally
   React.useEffect(() => {
@@ -144,6 +142,12 @@ export default function AgentDialogTrigger({
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, tenantId]);
+
+  const selectedTenant = tenants.find((t) => t.tenantId === tenantId);
+  const selectedAgent = agents.find((a) => a.agentId === agentId);
+
+  const tenantName = selectedTenant?.name || tenantId || "Unknown tenant";
+  const agentName = selectedAgent?.name || agentId || "Unknown agent";
 
   const canApply = Boolean(tenantId) && Boolean(agentId);
 
@@ -244,26 +248,34 @@ export default function AgentDialogTrigger({
             </select>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-200 hover:bg-neutral-800"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={!canApply}
-              onClick={() => {
-                if (!tenantId || !agentId) return;
-                onChange({ tenantId, agentId });
-                setOpen(false);
-              }}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-500 disabled:opacity-50"
-            >
-              Apply
-            </button>
+          <div className="flex items-center justify-between pt-2">
+            <div className="text-[11px] text-neutral-400">
+              Applying: <span className="text-neutral-200">{tenantName}</span>{" "}
+              <span className="text-neutral-500">/</span>{" "}
+              <span className="text-neutral-200">{agentName}</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-200 hover:bg-neutral-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!canApply}
+                onClick={() => {
+                  if (!tenantId || !agentId) return;
+                  onChange({ tenantId, tenantName, agentId, agentName });
+                  setOpen(false);
+                }}
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-500 disabled:opacity-50"
+              >
+                Apply
+              </button>
+            </div>
           </div>
         </div>
       </DialogContent>

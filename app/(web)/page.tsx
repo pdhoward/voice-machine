@@ -35,6 +35,18 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 type Variant = "neutral" | "success" | "danger" | "warning";
 
+type AgentSelection = {
+  tenantId: string;
+  tenantName: string;
+  agentId: string;
+  agentName: string;
+};
+
+const DEFAULT_TENANT_ID = "machine";
+const DEFAULT_TENANT_NAME = "Strategic Machines";
+const DEFAULT_AGENT_ID = "agent_sales_v1"
+const DEFAULT_AGENT_NAME = "Sales Agent"
+
 // ---------- page ----------
 const App: React.FC = () => {
   const didMountRef = useRef(false);
@@ -49,10 +61,21 @@ const App: React.FC = () => {
   const [agentVariant, setAgentVariant] = useState<Variant>("neutral");
 
   const { tenantId: contextTenantId } = useTenant();
-  const [selection, setSelection] = useState<{ tenantId: string; agentId: string } | null>(null);
+  const [selection, setSelection] = useState<AgentSelection | null>(() => ({
+      tenantId: DEFAULT_TENANT_ID,
+      tenantName: DEFAULT_TENANT_NAME,
+      agentId: DEFAULT_AGENT_ID,
+      agentName: DEFAULT_AGENT_NAME,
+    }));
 
-  const effectiveTenantId = selection?.tenantId || contextTenantId || "";
+  const effectiveTenantId = selection?.tenantId || contextTenantId || DEFAULT_TENANT_ID;
   const effectiveAgentId = selection?.agentId || "";
+
+  const tenantDisplayName = selection?.tenantName || effectiveTenantId || "Tenant";
+  const agentDisplayName =
+    agentRuntime?.agentName ||
+    selection?.agentName ||
+    (effectiveAgentId ? effectiveAgentId : "Select an agent");
 
   // runtime status for UI (agent trigger color + dialog summary)
   const [runtimeStatus, setRuntimeStatus] = useState<{ warnings: string[]; errors: string[] }>({
@@ -132,6 +155,7 @@ const App: React.FC = () => {
       return;
     }
     if (status !== "CONNECTED") return;
+    if (!effectiveTenantId || !effectiveAgentId) return;
 
     (async () => {
       try {
@@ -400,7 +424,15 @@ const App: React.FC = () => {
                 <div className="flex-1 p-3">
                   <div className="h-full flex flex-col text-neutral-200">
                     <div className="flex justify-between items-center mb-2 px-3">
-                      <h3 className="text-sm font-semibold">Cypress Resorts</h3>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-neutral-100 truncate">
+                          {tenantDisplayName}
+                        </div>
+                        <div className="text-[11px] text-neutral-400 truncate">
+                          {agentDisplayName}
+                        </div>
+                      </div>
+
                       <span className="text-xs">{formatTime(timer)}</span>
                     </div>
 
@@ -455,6 +487,11 @@ const App: React.FC = () => {
                     )}
                   </div>
                 </div>
+                <div className="px-3 pb-2">
+                  <div className="text-[11px] text-neutral-500 text-center">
+                    Select Tenant &amp; Agent below to change demo
+                  </div>
+                </div>
 
                 {/* bottom controls */}
                 <div className="p-3 border-t border-neutral-800">
@@ -466,16 +503,16 @@ const App: React.FC = () => {
                     onEndCall={onEndCall}
                     agentTrigger={
                       <AgentDialogTrigger
-                        defaultTenantId={contextTenantId}
+                        defaultTenantId={contextTenantId || DEFAULT_TENANT_ID}
                         value={selection ?? undefined}
                         onChange={(next) => {
                           setAgentVariant("neutral");
                           setAgentRuntime(null);
-                          setRuntimeStatus({ warnings: [], errors: [] }); 
+                          setRuntimeStatus({ warnings: [], errors: [] });
                           setSelection(next);
                         }}
                         title="Select Tenant + Agent"
-                        status={runtimeStatus} // ✅ drive button color + dialog summary
+                        status={runtimeStatus}
                         variant={agentVariant}
                       />
                     }

@@ -39,7 +39,7 @@ export function TenantProvider({
     })();
   }, [token]);
 
-    const effectiveTenantId =
+  const effectiveTenantId =
       tenantId ?? process.env.NEXT_PUBLIC_TENANT_ID ?? "machine";
 
   const value = useMemo(
