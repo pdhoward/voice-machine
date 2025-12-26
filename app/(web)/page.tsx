@@ -489,7 +489,7 @@ const App: React.FC = () => {
                 </div>
                 <div className="px-3 pb-2">
                   <div className="text-[11px] text-neutral-500 text-center">
-                    Select Tenant &amp; Agent below to change demo
+                    Select Tenant &amp; Agent below
                   </div>
                 </div>
 

@@ -126,12 +126,21 @@ const FlagsSchema = z.object({
 });
 
 const WidgetKeySchema = z.object({
-  id: z.string().optional(),       // internal ID for this key (UUID, etc.)
+  id: z.string().optional(),       // set to tenant_id - owner of the key
   key: z.string(),                 // public widget key, e.g. "w_acme_7f1b0e9c64f54d1a"
-  origin: z.string().optional(),   // optional website origin binding, e.g. "https://www.acme.com"
+  origin: z.string(),              // website origin binding where widget resides, e.g. "https://www.acme.com"
   label: z.string().optional(),    // “Main site”, “Staging”, etc.
   revoked: z.boolean().default(false),
   createdAt: z.date().optional(),
+});
+
+const APIKeySchema = z.object({
+  id: z.string().optional(),       // set to tenant_id = owner of the key
+  key: z.string(),                 // api key
+  origin: z.string().optional(),   // 3rd party website origin binding, e.g. "https://www.weather.com"
+  label: z.string().optional(),    // “Weather”, “Golf”, etc.
+  revoked: z.boolean().default(false),
+  createdAt: z.date(),
 });
 
 // Main tenant schema
@@ -148,6 +157,7 @@ export const TenantSchema = z.object({
   flags: FlagsSchema.optional(),  
 
   widgetKeys: z.array(WidgetKeySchema).default([]),
+  apiKeys: z.array(APIKeySchema).default([]),
 
   createdAt: z.date().default(() => new Date()),
   updatedAt: z.date().default(() => new Date()),
