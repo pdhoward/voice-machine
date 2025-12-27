@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTenant } from "@/context/tenant-context"; 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import TriggerIconButton from "./TriggerIconButton";
 import { UserPlus } from "lucide-react";
@@ -67,6 +68,9 @@ export default function AgentDialogTrigger({
 
   const [tenantId, setTenantId] = React.useState<string>(value?.tenantId || defaultTenantId || "");
   const [agentId, setAgentId] = React.useState<string>(value?.agentId || "");
+
+  const { setTenantId: setTenantCtx, setAgentId: setAgentCtx } = useTenant();
+
 
   const runtimeErrors = status?.errors ?? [];
   const runtimeWarnings = status?.warnings ?? [];
@@ -268,6 +272,8 @@ export default function AgentDialogTrigger({
                 disabled={!canApply}
                 onClick={() => {
                   if (!tenantId || !agentId) return;
+                  setTenantCtx(tenantId);
+                  setAgentCtx(agentId);
                   onChange({ tenantId, tenantName, agentId, agentName });
                   setOpen(false);
                 }}

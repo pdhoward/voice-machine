@@ -45,7 +45,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ tena
     const rows = await db
       .collection("actions")
       .find({ tenantId, enabled: { $ne: false } })
-      .toArray();
+      .toArray();      
 
     // Normalize Mongo-specific fields and number wrappers
     const normalized = rows.map((r) => {

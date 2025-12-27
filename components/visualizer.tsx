@@ -24,7 +24,7 @@ export default function Visualizer({
   onEnd,
   barsCount = 48,
 }: VisualizerProps) {
-  const { token } = useTenant();
+  const { tenantId, token } = useTenant();
   const [auth, setAuth] = useState<AuthState>("loading");
 
   // Optional: decode for a nicer tooltip (no verification here)
@@ -187,7 +187,7 @@ export default function Visualizer({
             : auth === "invalid"
             ? "Open Access in Navbar to sign in"
             : claims?.tenantId
-            ? `Tenant: ${claims.tenantId}`
+            ? `Tenant: ${tenantId}`
             : null}
         </div>
       )}

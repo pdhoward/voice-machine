@@ -37,7 +37,7 @@ type Stage = "email" | "otp" | "done";
 type VisualState = "default" | "error" | "success";
 
 export function AccessGate() {
-  const { tenantId, token, setToken } = useTenant();
+  const { tenantId, token, setToken } = useTenant(); // defaults to machine
 
   // popover open/close state so it behaves like a dropdown
   const [open, setOpen] = useState(false);

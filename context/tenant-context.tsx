@@ -5,8 +5,12 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 
 type TenantCtx = {
   tenantId: string;
+  setTenantId: (t: string) => void;
+
+  agentId: string;
+  setAgentId: (a: string) => void;
+
   token?: string | null;
-  agentId?: string;
   setToken: (t: string | null) => void;
 };
 
@@ -14,8 +18,8 @@ const TenantContext = createContext<TenantCtx | null>(null);
 
 export function TenantProvider({
   children,
-  tenantId,  
-  agentId,
+  tenantId: tenantIdProp,
+  agentId: agentIdProp,
   token: initialToken = null,
 }: {
   children: React.ReactNode;
@@ -23,7 +27,23 @@ export function TenantProvider({
   agentId?: string;
   token?: string | null;
 }) {
+  const defaultTenantId = tenantIdProp ?? process.env.NEXT_PUBLIC_TENANT_ID ?? "machine";
+
+  // Make tenant + agent mutable in-context
+  const [tenantId, setTenantId] = useState<string>(defaultTenantId);
+  const [agentId, setAgentId] = useState<string>(agentIdProp ?? "");
   const [token, setToken] = useState<string | null>(initialToken);
+
+  // If parent changes props (rare but valid), sync local state
+  useEffect(() => {
+    const next = tenantIdProp ?? process.env.NEXT_PUBLIC_TENANT_ID ?? "machine";
+    setTenantId((prev) => (prev === next ? prev : next));
+  }, [tenantIdProp]);
+
+  useEffect(() => {
+    if (agentIdProp == null) return;
+    setAgentId((prev) => (prev === agentIdProp ? prev : agentIdProp));
+  }, [agentIdProp]);
 
   // If the server sets a cookie, we can fetch a lightweight endpoint to read + expose it on first load.
   useEffect(() => {
@@ -39,13 +59,12 @@ export function TenantProvider({
     })();
   }, [token]);
 
-  const effectiveTenantId =
-      tenantId ?? process.env.NEXT_PUBLIC_TENANT_ID ?? "machine";
-
   const value = useMemo(
     () => ({
-      tenantId: effectiveTenantId,
-      agentId: agentId ?? "",
+      tenantId,
+      setTenantId,
+      agentId,
+      setAgentId,
       token,
       setToken,
     }),
