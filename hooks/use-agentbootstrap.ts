@@ -13,10 +13,25 @@ import { loadAgentMdRuntime, type AgentRuntimeLoadResult } from "@/lib/registry/
 
 import { coreTools } from "@/types/tools";
 import type { ToolDef } from "@/types/tools";
+import type { RealtimeContextValue } from "@/context/realtime-context";
 
 import { useTranscriptSink } from "@/hooks/use-transcript-sink";
 
-export function useAgentBootstrap({ stageRef }: { stageRef: React.RefObject<VisualStageHandle | null> }) {
+export type AgentBootstrapReturn = Pick<
+  RealtimeContextValue,
+  | "status"
+  | "volume"
+  | "connect"
+  | "disconnect"
+  | "sendText"
+  | "conversation"
+  | "setMicEnabled"
+  | "isMicEnabled"
+> & {
+  isConnected: boolean;
+};
+
+export function useAgentBootstrap({ stageRef }: { stageRef: React.RefObject<VisualStageHandle | null> }): AgentBootstrapReturn {
   
   const visualFunction = useVisualFunctions({ stageRef });
   const { tenantId, agentId, token } = useTenant();
@@ -44,6 +59,8 @@ export function useAgentBootstrap({ stageRef }: { stageRef: React.RefObject<Visu
     registerFunction,
     unregisterFunctionsByPrefix,
     conversation,
+    setMicEnabled,
+    isMicEnabled,
   } = useRealtime();
 
   ////////////////////////////////////////////////////////////////
@@ -215,5 +232,7 @@ export function useAgentBootstrap({ stageRef }: { stageRef: React.RefObject<Visu
     disconnect,
     sendText,
     conversation,
+    setMicEnabled,
+    isMicEnabled,
   };
 }

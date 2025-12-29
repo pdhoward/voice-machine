@@ -1,9 +1,9 @@
 // components/widget/VoicePill.tsx
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { MicIcon, Play, PhoneOff, ChevronUp, ChevronDown } from "lucide-react";
+import { MicIcon, MicOff, Play, PhoneOff, ChevronUp, ChevronDown } from "lucide-react";
 
 export type VoicePillProps = {
   displayName: string;
@@ -16,6 +16,9 @@ export type VoicePillProps = {
 
   expanded?: boolean;
   onToggleExpanded?: () => void;
+
+  micEnabled: boolean;
+  onToggleMic: () => void;
 };
 
 function clamp(n: number, min = 0, max = 1) {
@@ -89,6 +92,8 @@ export default function VoicePill({
   onEnd,
   expanded,
   onToggleExpanded,
+  micEnabled,
+  onToggleMic,
 }: VoicePillProps) {
   const isBusy = status === "CONNECTING";
 
@@ -131,6 +136,8 @@ export default function VoicePill({
     else onEnd();
   };
 
+  const micTitle = micEnabled ? "Mic on (click to mute)" : "Mic off (click to unmute)";
+
   return (
     <motion.div
       className={[
@@ -150,8 +157,43 @@ export default function VoicePill({
         className="flex w-full items-center gap-3 px-4 py-3 text-left"
         aria-label="Voice controls"
       >
-        <span className="grid h-7 w-7 place-items-center rounded-full bg-white/10" title="Microphone">
-          <MicIcon className="h-4 w-4 text-white" />
+        {/* ✅ Mic toggle */}
+        <span
+          className={[
+            "relative grid h-7 w-7 place-items-center rounded-full",
+            micEnabled ? "bg-white/12" : "bg-black/25",
+            "ring-1",
+            micEnabled ? "ring-white/20" : "ring-white/10",
+            "cursor-pointer select-none",
+          ].join(" ")}
+          title={micTitle}
+          role="button"
+          aria-label={micTitle}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleMic();
+          }}
+        >
+          {/* pulsing ring when mic is ON */}
+          <AnimatePresence>
+            {micEnabled && (
+              <motion.span
+                key="micpulse"
+                className="absolute inset-0 rounded-full ring-2 ring-white/30"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: [0.15, 0.45, 0.15], scale: [1, 1.18, 1] }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+              />
+            )}
+          </AnimatePresence>
+
+          {micEnabled ? (
+            <MicIcon className="h-4 w-4 text-white" />
+          ) : (
+            <MicOff className="h-4 w-4 text-white/70" />
+          )}
         </span>
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -159,6 +201,11 @@ export default function VoicePill({
             <CapsuleMeter level={level} active={isConnected} />
             <span className="text-sm font-semibold text-white/95">{statusText}</span>
             <span className="min-w-0 truncate text-xs text-white/70">{displayName}</span>
+
+            {/* ✅ optional inline hint */}
+            <span className="ml-1 text-[10px] text-white/60">
+              {micEnabled ? "" : "Muted"}
+            </span>
           </div>
 
           <div
@@ -171,6 +218,7 @@ export default function VoicePill({
           </div>
         </div>
 
+        {/* primary start/end button unchanged */}
         <span
           className={[
             "grid h-9 w-9 place-items-center rounded-full bg-white text-black shadow-sm",
@@ -222,6 +270,7 @@ export default function VoicePill({
             }}
             role="button"
             aria-label={expanded ? "Collapse" : "Expand"}
+            title={expanded ? "Collapse" : "Expand"}
           >
             {expanded ? (
               <ChevronDown className="h-4 w-4" />

@@ -1,7 +1,7 @@
 // components/widget/WidgetAgentPanel.tsx
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X } from "lucide-react";
 
@@ -22,7 +22,16 @@ export function WidgetAgentPanel() {
   
   const stageRef = useRef<VisualStageHandle | null>(null);
 
-  const { status, volume, isConnected, connect, disconnect, conversation } =
+  const { 
+    status, 
+    volume, 
+    isConnected, 
+    connect, 
+    disconnect, 
+    conversation,
+    isMicEnabled,
+    setMicEnabled,
+  } =
     useAgentBootstrap({ stageRef });
 
   const [displayName, setDisplayName] = useState("AI Voice Agent");
@@ -32,6 +41,8 @@ export function WidgetAgentPanel() {
   const [visualActive, setVisualActive] = useState(false);
 
   const isBusy = status === "CONNECTING";
+  const micEnabled = isMicEnabled();
+  const toggleMic = () => setMicEnabled(!micEnabled);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -239,6 +250,8 @@ export function WidgetAgentPanel() {
         onEnd={onEnd}
         expanded={expanded}
         onToggleExpanded={() => setExpanded((v) => !v)}
+        micEnabled={micEnabled}
+        onToggleMic={toggleMic}
       />
     </div>
   );

@@ -124,6 +124,7 @@ export function RealtimeProvider({
   const [conversation, setConversation] = useState<ConversationItem[]>([]);
   const [volume, setVolume] = useState(0);
   const [events, setEvents] = useState<any[]>([]); 
+  const [micEnabled, setMicEnabledState] = useState(true); // default ON
 
   const {tenantId, token} = useTenant() 
 
@@ -153,8 +154,7 @@ export function RealtimeProvider({
     }
 
   }, [options?.onServerEvent, maxEvents]);
-
-  
+ 
 
   const tokenProvider = useCallback(async () => {
       const agent = agentRef.current || {};
@@ -271,7 +271,7 @@ export function RealtimeProvider({
         }
       },
       [getClient]   
-    );
+    );  
 
   const disconnect            = useCallback(() => getClient().disconnect(), [getClient]);
   const sendText              = useCallback((t: string) => getClient().sendText(t), [getClient]);
@@ -305,8 +305,18 @@ export function RealtimeProvider({
   );
 
   // mic + extras
-  const setMicEnabledCb = useCallback((enabled: boolean) => getClient().setMicEnabled(enabled), [getClient]);
-  const isMicEnabledCb  = useCallback(() => getClient().isMicEnabled(), [getClient]);
+  // syncs with real state from the webrtc
+    useEffect(() => {
+    const current = clientRef.current?.isMicEnabled?.();
+    if (typeof current === "boolean") setMicEnabledState(current);
+  }, [status]);
+
+  const setMicEnabledCb = useCallback((enabled: boolean) => {
+      setMicEnabledState(enabled);       // UI mirror
+      getClient().setMicEnabled(enabled); // real behavior
+    }, [getClient]);
+
+  const isMicEnabledCb = useCallback(() => micEnabled, [micEnabled]);
   const forceToolCallCb = useCallback(
     (name: string, args?: any, sayAfter?: string) => getClient().forceToolCall(name, args, sayAfter),
     [getClient]
