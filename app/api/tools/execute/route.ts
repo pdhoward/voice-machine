@@ -239,14 +239,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ---- OUTBOUND LOG -----------------------------------------------------
-    // console.log(`[EXEC] ${traceId} → ${method} ${targetUrl}`, {
-    //   tool: toolName,
-    //   tenantId,
-    //   okField: descriptor.http.okField ?? "(http 2xx)",
-    //   headers: redactHeaders(headers),
-    //   body: snap(bodyObj),
-    // });
+    //---- OUTBOUND LOG -----------------------------------------------------
+    console.log(`[EXEC: OUTBOUND] ${traceId} → ${method} ${targetUrl}`, {
+      tool: toolName,
+      tenantId,
+      okField: descriptor.http.okField ?? "(http 2xx)",
+      hasBody: body != null,
+      headers: redactHeaders(headers),
+      body: snap(bodyObj),
+    });
 
     // Do the call
     const timeoutMs = Number(descriptor.http.timeoutMs) || 15000;
@@ -259,10 +260,11 @@ export async function POST(req: NextRequest) {
     const text = await r.text();
 
     // ---- INBOUND LOG ------------------------------------------------------
-    // console.log(`[EXEC] ${traceId} ← ${r.status} (${Date.now() - started}ms)`, {
-    //   tool: toolName,
-    //   response: snap(text),
-    // });
+    console.log(`[EXEC: INBOUND] ${traceId} ← ${r.status} (${Date.now() - started}ms)`, {
+      tool: toolName,
+      respHeaders: Object.fromEntries(r.headers.entries()),
+      response: snap(text),
+    });
 
     // Return JSON if possible, else text
     try {
