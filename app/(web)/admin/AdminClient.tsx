@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 
 type MetricsPayload = {
   now: string;
@@ -59,6 +59,27 @@ export default function AdminClient() {
   const [err, setErr] = useState<string | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<string>("(all)");
 
+  const refreshInFlight = useRef<Promise<void> | null>(null);
+  const lastRefreshAt = useRef(0);
+
+  const refreshThrottled = async (minIntervalMs = 1200) => {
+    const now = Date.now();
+    if (now - lastRefreshAt.current < minIntervalMs) return;
+
+    // If a refresh is already running, don't start another.
+    if (refreshInFlight.current) return;
+
+    lastRefreshAt.current = now;
+    refreshInFlight.current = (async () => {
+      try {
+        await refresh();
+      } finally {
+        refreshInFlight.current = null;
+      }
+    })();
+  };
+
+
   const refresh = async () => {
     setErr(null);
     const r = await fetch("/api/admin/metrics", { cache: "no-store" });
@@ -105,11 +126,12 @@ export default function AdminClient() {
 
       es.addEventListener("ping", () => setStreamOk(true));
 
-      // On any change, just re-fetch snapshot (simple & robust)
+      // On any change, just re-fetch snapshot 
       const onAny = (e: any) => {
         console.log("[Admin] SSE event:", e?.type);
-        refresh(); // or refreshThrottled(1000) if you added it
+        refreshThrottled(1200); // at most ~1 refresh/sec
       };
+
 
       es.addEventListener("realtime_sessions", onAny);
       es.addEventListener("usage_daily", onAny);
