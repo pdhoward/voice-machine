@@ -55,16 +55,13 @@ export async function GET(req: NextRequest) {
   const activeSince = new Date(now - idleMs);
   const startedAfter = new Date(now - maxDurMs);
 
-  // Active sessions: "active:true" + lastSeen within idle window + started within max duration
-  const activeSessions = await sessionsColl
-    .find({
-      active: true,
-      lastSeenAt: { $gte: activeSince },
-      startedAt: { $gte: startedAfter },
-    })
-    .sort({ lastSeenAt: -1 })
-    .limit(500)
-    .toArray();
+  // Active sessions: "active:true" - then label them in the UI (engaged, idle or stale)
+    const activeSessions = await sessionsColl
+      .find({ active: true })
+      .sort({ lastSeenAt: -1 })
+      .limit(500)
+      .toArray();
+
 
  const tenantAgg = new Map<
     string,

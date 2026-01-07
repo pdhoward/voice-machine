@@ -1,4 +1,4 @@
-// /app/api/session/heartbeat/route.ts
+// /app/api/heartbeat/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import getMongoConnection from "@/db/connections";
 import { getActiveOtpSession } from "@/app/api/_lib/session";

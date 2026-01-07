@@ -33,9 +33,15 @@ export async function GET(req: NextRequest) {
 
       try {
         // Keep pipeline minimal; UI refetches snapshots anyway.
-        const rtStream = realtime.watch([], { fullDocument: "updateLookup" });
+        const rtStream = realtime.watch(
+            [{ $match: { operationType: { $in: ["insert", "update", "replace"] } } }],
+            { fullDocument: "updateLookup" }
+          );
         const usageStream = usage.watch([], { fullDocument: "updateLookup" });
-        const rateStream = ratelimits.watch([], { fullDocument: "updateLookup" });
+        const rateStream = ratelimits.watch(
+            [{ $match: { operationType: { $in: ["insert", "update"] } } }],
+            { fullDocument: "updateLookup" }
+          );
 
         const forward = async (name: string, cs: any) => {
           for await (const change of cs) {
