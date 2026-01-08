@@ -35,6 +35,7 @@ type MetricsPayload = {
     active: boolean;
     ageSec: number;
     idleSec: number;
+    status: "engaged" | "idle" | "overDuration";
   }>;
   usageToday: Array<{
     _id: string;
@@ -52,6 +53,15 @@ function fmtMoney(x: number) {
 function fmtInt(n: number) {
   return n.toLocaleString();
 }
+
+function statusDot(status: "engaged" | "idle" | "overDuration") {
+  return status === "engaged"
+    ? "bg-emerald-400"
+    : status === "idle"
+    ? "bg-amber-400"
+    : "bg-violet-400";
+}
+
 
 export default function AdminClient() {
   const [data, setData] = useState<MetricsPayload | null>(null);
@@ -342,6 +352,7 @@ return (
               <tr className="border-b border-zinc-800">
                 <th className="text-left px-4 py-2">Tenant</th>
                 <th className="text-left px-4 py-2">Kind</th>
+                <th className="text-left px-4 py-2">Status</th>
                 <th className="text-left px-4 py-2">Session</th>
                 <th className="text-right px-4 py-2">Age</th>
                 <th className="text-right px-4 py-2">Idle</th>
@@ -355,6 +366,15 @@ return (
                     {s.tenantId || <span className="text-zinc-500">(none)</span>}
                   </td>
                   <td className="px-4 py-2">{s.identityKind}</td>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                       <span className={`h-2 w-2 rounded-full ${statusDot(s.status)}`} />
+                       <span className="text-xs text-zinc-400">
+                          {s.status === "engaged" ? "engaged" : s.status === "idle" ? "idle" : "over"}
+                       </span>                      
+                    </div>
+                  </td>
+
                   <td className="px-4 py-2 font-mono text-xs">{s.smSessionId}</td>
                   <td className="px-4 py-2 text-right">{Math.floor(s.ageSec / 60)}m</td>
                   <td className="px-4 py-2 text-right">{s.idleSec}s</td>
@@ -371,7 +391,7 @@ return (
 
               {activeSessions.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-zinc-500" colSpan={6}>
+                  <td className="px-4 py-6 text-zinc-500" colSpan={7}>
                     No active sessions in the current window.
                   </td>
                 </tr>

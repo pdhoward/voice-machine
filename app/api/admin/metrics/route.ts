@@ -100,11 +100,13 @@ export async function GET(req: NextRequest) {
   // bucket rate docs by type using _id prefixes (ip:, user:, sess:)
   const rateBuckets = { ip: 0, user: 0, sess: 0, other: 0 };
   for (const r of rateRecent) {
-    if (r._id.startsWith("ip:")) rateBuckets.ip += 1;
-    else if (r._id.startsWith("user:")) rateBuckets.user += 1;
-    else if (r._id.startsWith("sess:")) rateBuckets.sess += 1;
-    else rateBuckets.other += 1;
+    const c = r.count || 0;
+    if (r._id.startsWith("ip:")) rateBuckets.ip += c;
+    else if (r._id.startsWith("user:")) rateBuckets.user += c;
+    else if (r._id.startsWith("sess:")) rateBuckets.sess += c;
+    else rateBuckets.other += c;
   }
+
 
   const tenants = Array.from(tenantAgg.values())
     .map((t) => {
@@ -159,20 +161,32 @@ export async function GET(req: NextRequest) {
       rateBuckets,
     },
     tenants,
-    activeSessions: activeSessions.map((s) => ({
-      _id: s._id,
-      smSessionId: s.smSessionId,
-      tenantId: s.tenantId || null,
-      identityKind: s.identityKind,
-      identityKey: s.identityKey,
-      emailHash: s.emailHash || null,
-      startedAt: s.startedAt,
-      lastSeenAt: s.lastSeenAt,
-      active: s.active,
-      // derived durations (UI convenience)
-      ageSec: Math.floor((now - new Date(s.startedAt).getTime()) / 1000),
-      idleSec: Math.floor((now - new Date(s.lastSeenAt).getTime()) / 1000),
-    })),
+    activeSessions: activeSessions.map((s) => {
+      const ageSec = Math.floor((now - new Date(s.startedAt).getTime()) / 1000);
+      const idleSec = Math.floor((now - new Date(s.lastSeenAt).getTime()) / 1000);
+
+      const overIdle = idleSec > rateCfg.maxSessionIdleSec;
+      const overDuration = ageSec > rateCfg.maxSessionMinutes * 60;
+
+      // status priority: overDuration > idle > engaged
+      const status = overDuration ? "overDuration" : overIdle ? "idle" : "engaged";
+
+      return {
+        _id: s._id,
+        smSessionId: s.smSessionId,
+        tenantId: s.tenantId || null,
+        identityKind: s.identityKind,
+        identityKey: s.identityKey,
+        emailHash: s.emailHash || null,
+        startedAt: s.startedAt,
+        lastSeenAt: s.lastSeenAt,
+        active: s.active,
+        ageSec,
+        idleSec,
+        status,
+      };
+    }),
+
     usageToday: usageToday.map((u) => ({
       _id: u._id,
       date: u.date,

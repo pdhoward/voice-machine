@@ -15,6 +15,8 @@ import { getActiveOtpSession } from "@/app/api/_lib/session";
 import { checkBotId } from "botid/server";
 import { rateCfg } from "@/config/rate";
 import { verifyWidgetSessionToken } from "@/lib/tenants/widgetToken";
+import { checkWidgetAbuse } from "@/app/api/_lib/abuse";
+
 
 const ALLOWED_MODELS = new Set(["gpt-realtime", "gpt_realtime_mini"]);
 const ALLOWED_VOICES = new Set(["alloy", "coral"]);
@@ -180,8 +182,29 @@ async function createSession(
     identityKey = `anon:${sha256Hex("anon")}`;
   }
 
-  // 4) Per-identity concurrent sessions cap, now using limits.maxConcurrent
+    // 3b) Widget abuse/risk check (lightweight, before expensive work)
   const { db } = await getMongoConnection(process.env.DB!, process.env.MAINDBNAME!);
+  if (auth?.kind === "widget") {
+    const abuse = await checkWidgetAbuse(db, req, {
+      tenantId: auth.tenantId,
+      widgetKey: auth.widgetKey,
+    });
+
+    if (!abuse.ok) {
+      return NextResponse.json(
+        {
+          error: "Step-up required",
+          code: abuse.code,
+          stepUp: abuse.stepUp,
+          userMessage: "Please verify you’re human to continue.",
+        },
+        { status: 403 }
+      );
+    }
+  }
+
+
+  // 4) Per-identity concurrent sessions cap, now using limits.maxConcurrent
   const sessions = db.collection<RealtimeSessionDoc>("realtime_sessions");
   const activeCount = await sessions.countDocuments({
     identityKind,

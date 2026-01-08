@@ -350,20 +350,66 @@ export function RealtimeProvider({
   useEffect(() => {
     if (status === 'CONNECTED') {
       // start
-      const run = () => {
+      const run = async () => {
         const id = clientRef.current?.getSmSessionId();
-        if (!id) return; // no session id yet
-        fetch('/api/heartbeat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ 
-            sm_session_id: id,
-            authToken: token ?? undefined, // 🔹 widget/commercial auth
-            tenantId,                      // 🔹 for tenant scoping
-          }),
-        }).catch(() => {});
+        if (!id) return;
+
+        try {
+          const r = await fetch("/api/heartbeat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              sm_session_id: id,
+              authToken: token ?? undefined,
+              tenantId,
+            }),
+          });
+
+          if (r.ok) return;
+
+          // Try parse JSON (best effort)
+          let body: any = null;
+          try {
+            body = await r.json();
+          } catch {}
+
+          // Admin terminated / revoked / ended
+          if (r.status === 410 || body?.code === "SESSION_ENDED") {
+            toast.error("Session ended", {
+              description: "This voice session was closed by an administrator.",
+              duration: 4000,
+            });
+
+            // hard stop: disconnect WebRTC session
+            clientRef.current?.disconnect?.();
+
+            // stop heartbeat loop immediately
+            if (heartbeatRef.current != null) {
+              clearInterval(heartbeatRef.current);
+              heartbeatRef.current = null;
+            }
+            return;
+          }
+
+          // Other auth failures (tenant mismatch, invalid token, etc.)
+          if (r.status === 401 || r.status === 403) {
+            toast.error("Session authorization failed", {
+              description: body?.error || "Please refresh and try again.",
+              duration: 4000,
+            });
+            clientRef.current?.disconnect?.();
+            if (heartbeatRef.current != null) {
+              clearInterval(heartbeatRef.current);
+              heartbeatRef.current = null;
+            }
+            return;
+          }
+        } catch {
+          // Network failure: ignore (best-effort heartbeat)
+        }
       };
+
       run(); // send one immediately
       heartbeatRef.current = window.setInterval(run, 45_000); // every 45s
     } else {

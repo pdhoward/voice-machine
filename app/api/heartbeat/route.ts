@@ -86,9 +86,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  await sessions.updateOne(filter, {
+  const r = await sessions.updateOne(filter, {
     $set: { lastSeenAt: new Date() },
   });
+
+  // If nothing matched, it means the session is no longer active (or wrong identity)
+  if (r.matchedCount === 0) {
+    return NextResponse.json(
+      { error: "Session ended or not found", code: "SESSION_ENDED" },
+      { status: 410 } // Gone
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }
