@@ -205,6 +205,9 @@ async function createSession(
 
 
   // 4) Per-identity concurrent sessions cap, now using limits.maxConcurrent
+
+  console.log(`=============================debug======================`)
+  
   const sessions = db.collection<RealtimeSessionDoc>("realtime_sessions");
   const activeCount = await sessions.countDocuments({
     identityKind,
@@ -212,6 +215,8 @@ async function createSession(
     ...(tenantId ? { tenantId } : {}),
     active: true,
   });
+  console.log(`active count = ${activeCount}`)
+  console.log(`limits = ${JSON.stringify(limits)}`)
 
   if (activeCount >= limits.maxConcurrent) {
     return NextResponse.json(
@@ -287,6 +292,8 @@ async function createSession(
 export async function POST(req: NextRequest) {
   const auth = await resolveAuth(req);
   const limits = rateCfg.getLimits(auth?.kind);
+
+  console.log(`auth is ${JSON.stringify(auth)}`)
 
   return withRateLimit(
     req,
