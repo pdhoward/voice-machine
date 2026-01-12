@@ -526,19 +526,29 @@ export default function AdminClient() {
             </div>
           </div>
 
-          {/* Rate summary */}
+         {/* Rate summary */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 mt-6 p-4">
             <div className="flex items-center justify-between">
               <div className="font-medium">Rate counters (last 15 minutes)</div>
-              <div className="text-sm text-zinc-300">{live.overview.rateEventsLast15Min ?? 0} events</div>
+              <div className="text-sm text-zinc-300">
+                {live.overview.rateEventsLast15Min ?? 0} events
+              </div>
             </div>
+
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 text-sm">
               <MiniStat label="ip:*" value={live.overview.rateBuckets.ip ?? 0} />
               <MiniStat label="user:*" value={live.overview.rateBuckets.user ?? 0} />
               <MiniStat label="sess:*" value={live.overview.rateBuckets.sess ?? 0} />
               <MiniStat label="other" value={live.overview.rateBuckets.other ?? 0} />
             </div>
+
+            {/* Top IPs dropdown */}
+            <div className="mt-4 flex flex-col gap-2">
+              <div className="text-sm font-medium text-zinc-200">Top IPs (last 15 minutes)</div>
+              <TopIpDropdown ips={(live.overview as any)?.topIps || []} />
+            </div>
           </div>
+
         </>
       )}
 
@@ -615,3 +625,81 @@ function MiniStat({ label, value }: { label: string; value: any }) {
     </div>
   );
 }
+
+function TopIpDropdown({
+  ips,
+}: {
+  ips: Array<{
+    ip: string;
+    hits: number;
+    city?: string | null;
+    region?: string | null;
+    country?: string | null;
+    asn?: number | null;
+    asOrg?: string | null;
+  }>;
+}) {
+  const [selected, setSelected] = useState<string>(ips?.[0]?.ip || "");
+
+  useEffect(() => {
+    if (!selected && ips?.[0]?.ip) setSelected(ips[0].ip);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ips?.length]);
+
+  const rec = ips.find((x) => x.ip === selected) || null;
+  const label =
+    rec
+      ? [rec.city, rec.region, rec.country].filter(Boolean).join(", ")
+      : "";
+
+  const copy = async () => {
+    if (!rec?.ip) return;
+    try {
+      await navigator.clipboard.writeText(rec.ip);
+    } catch {}
+  };
+
+  if (!ips || ips.length === 0) {
+    return (
+      <div className="text-sm text-zinc-500">
+        No IP counters yet. (They appear when IP tracking is enabled and traffic hits /api/session.)
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        value={selected}
+        onChange={(e) => setSelected(e.target.value)}
+        className="flex-1 rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm"
+      >
+        {ips.map((x) => {
+          const loc = [x.city, x.region, x.country].filter(Boolean).join(", ");
+          const org = x.asOrg ? ` · ${x.asOrg}` : "";
+          return (
+            <option key={x.ip} value={x.ip}>
+              {x.ip} · {x.hits} hits{loc ? ` · ${loc}` : ""}{org}
+            </option>
+          );
+        })}
+      </select>
+
+      <button
+        onClick={copy}
+        className="rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-3 py-2 text-sm"
+        title="Copy IP"
+      >
+        Copy
+      </button>
+
+      {rec && (
+        <div className="hidden lg:block text-xs text-zinc-500 ml-2 truncate max-w-[360px]" title={label}>
+          {label || "No geo data"}
+          {rec.asn ? ` · AS${rec.asn}` : ""}
+        </div>
+      )}
+    </div>
+  );
+}
+

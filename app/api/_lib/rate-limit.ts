@@ -42,6 +42,16 @@ type RateDoc = {
   count: number;
   windowSec: number;
   createdAt: Date;
+   // enrichments (safe, not PII)
+  ip?: string;
+  geo?: {
+    city?: string;
+    region?: string;
+    country?: string;
+    postalCode?: string;
+    latitude?: string;
+    longitude?: string;
+  };
 };
 
 export async function withRateLimit(
@@ -55,6 +65,17 @@ export async function withRateLimit(
   const ip = ipFromHeaders(req);
   const session = await getActiveOtpSession(req as unknown as Request);
   const email = session?.email ?? null;
+
+  const geo = {
+    city: req.headers.get("x-vercel-ip-city") ?? undefined,
+    region: req.headers.get("x-vercel-ip-country-region") ?? undefined,
+    country: req.headers.get("x-vercel-ip-country") ?? undefined,
+    postalCode: req.headers.get("x-vercel-ip-postal-code") ?? undefined,
+    latitude: req.headers.get("x-vercel-ip-latitude") ?? undefined,
+    longitude: req.headers.get("x-vercel-ip-longitude") ?? undefined,
+  };
+
+  const hasGeo = Object.values(geo).some(Boolean);
 
   const { db } = await getMongoConnection(
     process.env.DB!,
@@ -71,7 +92,9 @@ export async function withRateLimit(
     : null;
 
   // --- Per-minute counters (opt-in for IP/USER) ---
-  const doServerMinuteChecks = rateCfg.enableServerMinuteChecks; // keep simple and global
+  const doServerMinuteChecks = rateCfg.enableServerMinuteChecks;      // enforce?
+  // --- simple counting of IP visits
+  const doServerMinuteTracking = rateCfg.enableServerMinuteTracking;  // write counters?
 
   const bulk = rateColl.initializeUnorderedBulkOp();
 
@@ -87,14 +110,18 @@ export async function withRateLimit(
       });
   }
 
-  if (doServerMinuteChecks) {
+  if (doServerMinuteTracking) {
     bulk
       .find({ _id: ipKey })
       .upsert()
       .updateOne({
         $inc: { count: 1 },
         $setOnInsert: { createdAt: new Date() },
-        $set: { windowSec: C.windowSec },
+        $set: {
+          windowSec: C.windowSec,
+          ip, // ✅ store ip separately for ready access
+          ...(hasGeo ? { geo } : {}), // ✅ store geo if present
+        },
       });
 
     if (userKey) {
@@ -109,14 +136,18 @@ export async function withRateLimit(
     }
   }
 
+
+
   if ((bulk as any).length) {
     await bulk.execute();
   }
 
+  const wantIpUserDocs = doServerMinuteChecks || doServerMinuteTracking;
+
   const keys = [
     sessKey,
-    doServerMinuteChecks ? ipKey : null,
-    doServerMinuteChecks ? userKey : null,
+    wantIpUserDocs ? ipKey : null,
+    wantIpUserDocs ? userKey : null,
   ].filter(Boolean) as string[];
 
   const docs = keys.length
@@ -126,13 +157,15 @@ export async function withRateLimit(
   const sessCount = sessKey
     ? docs.find((d) => d._id === sessKey)?.count ?? 0
     : 0;
-  const ipCount = doServerMinuteChecks
+  const ipCount = wantIpUserDocs
     ? docs.find((d) => d._id === ipKey)?.count ?? 0
     : 0;
+
   const userCount =
-    doServerMinuteChecks && userKey
+    wantIpUserDocs && userKey
       ? docs.find((d) => d._id === userKey)?.count ?? 0
       : 0;
+
 
   // Enforce session/minute (always) and IP/USER (optional)
   const overIp = doServerMinuteChecks && ipCount > C.ipPerMin;

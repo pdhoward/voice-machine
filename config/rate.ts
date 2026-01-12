@@ -44,7 +44,10 @@ export const rateCfg = {
     String(process.env.REQUIRE_AUTH_FOR_SESSION || "true") === "true",
 
   enableServerMinuteChecks:
-    String(process.env.ENABLE_SERVER_MINUTE_CHECKS || "false") === "true",
+    String(process.env.ENABLE_SERVER_MINUTE_CHECKS || "false") === "true", // enforce IP/User
+  
+  enableServerMinuteTracking:
+    String(process.env.ENABLE_SERVER_MINUTE_TRACKING || "true") === "true", // Write Counters to admin/dashboard
 
   consoleLimits,
   widgetLimits,

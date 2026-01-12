@@ -223,7 +223,8 @@ export async function GET(req: NextRequest) {
     .limit(2000)
     .toArray();
 
-  const rateBuckets = { ip: 0, user: 0, sess: 0, other: 0 };
+  const rateBuckets = { ip: 0, user: 0, sess: 0, other: 0 }; 
+
   for (const r of rateRecent) {
     const c = r.count || 0;
     if (r._id.startsWith("ip:")) rateBuckets.ip += c;
@@ -231,6 +232,40 @@ export async function GET(req: NextRequest) {
     else if (r._id.startsWith("sess:")) rateBuckets.sess += c;
     else rateBuckets.other += c;
   }
+
+  // --- Top IPs (aggregate counts by IP) ---
+  const ipCounts = new Map<string, number>();
+  const ipGeo = new Map<string, any>();
+
+  for (const r of rateRecent) {
+    if (!r._id.startsWith("ip:")) continue;
+      // ip:<addr>:<winId>
+    const parts = r._id.split(":");
+    const ip = parts[1];
+    ipCounts.set(ip, (ipCounts.get(ip) || 0) + (r.count || 0));
+    if (!ipGeo.has(ip)) {
+      const geo = (r as any).geo || null;
+      ipGeo.set(ip, geo);
+  }
+}
+
+  const topIps = Array.from(ipCounts.entries())
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 20)
+  .map(([ip, hits]) => {
+    const geo = ipGeo.get(ip) || null;
+    return {
+      ip,
+      hits,
+      city: geo?.city ?? null,
+      region: geo?.region ?? null,
+      country: geo?.country ?? null,
+      // ASN/org are NOT provided by Vercel geo headers.
+      // Fill later via MaxMind ASN db when needed
+      asn: null,
+      asOrg: null,
+    };
+  });
 
   const engagedSessionsCount = activeSessions.filter((s) => s.status === "engaged").length;
   const engagedTenantsCount = tenants.filter((t) => t.tenantId !== "(none)" && t.engaged > 0).length;
@@ -252,6 +287,7 @@ export async function GET(req: NextRequest) {
       dollarsToday,
       rateEventsLast15Min: rateRecent.length,
       rateBuckets,
+      topIps,
     },
     tenants,
     activeSessions,
