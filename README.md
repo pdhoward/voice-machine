@@ -1,6 +1,11 @@
 ## Strategic Machines
 
-Basic app architecture for the Voice Agents platform
+Basic app architecture for the Voice Agents platform:
+
+> Context Engineering
+> Tools (including visual)
+> Data is the Code
+
 
 ### Features Include
 * Data driven AI architecture, where a set of tool descriptors retrieved from the db are used to direct the model for local or remote api calls
