@@ -106,7 +106,7 @@ export function RealtimeProvider({
   children: React.ReactNode;
   options?: RealtimeProviderOptions;
 }) {
-  const model = options?.model ?? 'gpt-4o-realtime-preview-2024-12-17';
+  const model = options?.model ?? 'gpt-4o-realtime'; // GA model (was gpt-4o-realtime-preview-2024-12-17)
   const defaultVoice = options?.defaultVoice ?? 'alloy';
   const appendModelVoiceToUrl = options?.appendModelVoiceToUrl ?? true;
   const turnDetection = options?.turnDetection;

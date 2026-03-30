@@ -157,7 +157,7 @@ public exposeRegistryToWindow(key: string = "getToolRegistrySnapshot") {
     input_audio_transcription: { model: "whisper-1" },
     tools: this.normalizeTools(this.agent.tools),
     tool_choice: "auto",
-    temperature: 0.8,
+    // temperature removed: locked to 0.6–1.2 in GA, no longer user-configurable
     max_response_output_tokens: "inf",
     // ❌ DO NOT put `turn_detection` here by default.
   };
@@ -584,21 +584,27 @@ public forceToolCall(name: string, args?: any, sayAfter?: string) {
       }
 
       // Assistant (TTS) transcript deltas/done
-      case "response.audio_transcript.delta": {
+      // GA renamed: response.audio_transcript.* → response.output_audio_transcript.*
+      case "response.output_audio_transcript.delta": // GA
+      case "response.audio_transcript.delta": {      // beta compat
         this.updateLastAssistant(msg.delta || "", false);
         break;
       }
-      case "response.audio_transcript.done": {
+      case "response.output_audio_transcript.done":  // GA
+      case "response.audio_transcript.done": {       // beta compat
         this.updateLastAssistant("", true);
         break;
       }
 
       // Text deltas (if you also request text)
-      case "response.text.delta": {
+      // GA renamed: response.text.* → response.output_text.*
+      case "response.output_text.delta":  // GA
+      case "response.text.delta": {       // beta compat
         this.updateLastAssistant(msg.delta || "", false);
         break;
       }
-      case "response.text.done": {
+      case "response.output_text.done":  // GA
+      case "response.text.done": {       // beta compat
         this.updateLastAssistant("", true);
         break;
       }

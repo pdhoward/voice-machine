@@ -230,7 +230,7 @@ async function createSession(
     );
   }
 
-  // 5) Create OpenAI Realtime session (unchanged)
+  // 5) Create OpenAI Realtime session
   const payload = {
     model,
     voice,

@@ -24,3 +24,6 @@ Runtime behavior (from /api/tools/execute):
 - Success = http.okField exists (truthy) in response OR HTTP 2xx when okField omitted.
 - Then apply ui.onSuccess or ui.onError; payload is templated again with the same ctx.
 - `pruneEmpty: true` strips "", null, {}, [] before sending.
+
+### MIGRATION GUIDELINES
+https://developers.openai.com/api/docs/guides/realtime#beta-to-ga-migration
